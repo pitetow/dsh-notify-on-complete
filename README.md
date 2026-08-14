@@ -6,6 +6,7 @@ DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面�
 
 - 零运行时依赖：不依赖 dsh 内部包，也不依赖 `ctx.shell` 服务，通知用 `child_process.spawn` 以 detached 子进程发出，**不阻塞、也不被 harness 退出流程影响**。
 - 跨平台：按 `process.platform` 自动选择通知命令（macOS `osascript` / Linux `notify-send`→`kdialog` / Windows PowerShell）。不支持的平台加载时跳过并打警告，不会在每个事件里抛错。
+- 通知带系统提示音：macOS 用系统默认提示音（`sound name "Glass"`）、Windows 用 .NET SystemSounds、Linux 用 `canberra-gtk-play`（缺失时回退 `paplay`）；可用 `sound: false` 关闭。
 - 只通知顶层运行：子代理（subagent）会话被过滤（`header.origin === 'subagent'`），一次 CLI 运行只弹一条通知。
 
 ## 工作原理
@@ -129,6 +130,7 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 |---|---|---|---|
 | `enabled` | boolean | `true` | 设为 `false` 时插件不注册任何监听，完全关闭 |
 | `title` | string | `DeepSeek Harness` | 系统通知的标题 |
+| `sound` | boolean | `true` | 通知时同时播放系统提示音；设为 `false` 只弹通知不出声 |
 
 配置校验在加载时执行（fail loud）：类型错误会在启动时报错，不会静默忽略。
 
@@ -136,9 +138,9 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 
 | 平台 | 命令 | 备注 |
 |---|---|---|
-| macOS | `osascript -e 'display notification …'` | 原生通知中心通知 |
-| Linux | `notify-send` | 缺失时自动回退 `kdialog --passivepopup` |
-| Windows | PowerShell `WScript.Shell.Popup` | 无需额外模块，5 秒自动关闭 |
+| macOS | `osascript -e 'display notification …'` | 原生通知中心通知，带系统提示音（`sound name "Glass"`） |
+| Linux | `notify-send` | 缺失时自动回退 `kdialog --passivepopup`；提示音走 `canberra-gtk-play`（缺失时回退 `paplay`） |
+| Windows | PowerShell `WScript.Shell.Popup` | 无需额外模块，5 秒自动关闭，带 .NET SystemSounds 提示音 |
 
 > macOS 首次使用可能需要给终端应用授予"通知"权限（系统设置 → 通知）。
 
