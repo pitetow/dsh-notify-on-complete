@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 import { describe, expect, it, vi } from 'vitest'
-import { RunEndNotifier } from '../src/notifier.js'
+import { BlockedNotifier, RunEndNotifier } from '../src/notifier.js'
 import type { AgentStatusPayload, Session, SessionEvent } from '../src/types.js'
 
 function rootSession(id = 'root'): Session {
@@ -16,6 +16,18 @@ function subagentSession(id: string): Session {
 
 function turnEnd(kind: string): SessionEvent {
   return { type: 'turn/end', data: { turn: 1, reason: { kind } } }
+}
+
+function toolCall(name: string, args = '{}'): SessionEvent {
+  return { type: 'tool/call', data: { turn: 1, step: 1, callId: 'c1', name, arguments: args } }
+}
+
+function approvalAsked(toolName: string, reason?: string): SessionEvent {
+  return { type: 'approval/asked', data: { id: 'a1', toolName, ...(reason === undefined ? {} : { reason }) } }
+}
+
+function makeBlockedNotifier(onQuestion = true, onApproval = true, notify = vi.fn()) {
+  return { notifier: new BlockedNotifier({ notify, onQuestion, onApproval }), notify }
 }
 
 function idle(agent: AgentStatusPayload['agent']): AgentStatusPayload {
@@ -112,5 +124,61 @@ describe('RunEndNotifier', () => {
     notifier.onSessionEvent(rootSession(), { type: 'turn/end', data: { turn: 1 } })
     notifier.onAgentStatus(idle({ id: 'root', session: rootSession() }))
     expect(notify).toHaveBeenCalledWith('unknown', 'root')
+  })
+})
+
+describe('BlockedNotifier', () => {
+  it('notifies on an ask_user_question tool call with the question text', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), toolCall('ask_user_question', '{"questions":[{"question":"要如何？"}]}'))
+    expect(notify).toHaveBeenCalledWith('question', '要如何？', 'root')
+  })
+
+  it('notifies on an approval/asked event with tool name and reason', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), approvalAsked('bash', 'escalate sandbox'))
+    expect(notify).toHaveBeenCalledWith('approval', 'bash — escalate sandbox', 'root')
+  })
+
+  it('omits the reason when approval/asked has none', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), approvalAsked('bash'))
+    expect(notify).toHaveBeenCalledWith('approval', 'bash', 'root')
+  })
+
+  it('ignores non-ask-user tool calls', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), toolCall('bash'))
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('ignores other event types', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), turnEnd('completed'))
+    notifier.onSessionEvent(rootSession(), { type: 'assistant/message', data: {} })
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('does not notify subagent sessions', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(subagentSession('child'), toolCall('ask_user_question', '{"questions":[{"question":"x"}]}'))
+    notifier.onSessionEvent(subagentSession('child'), approvalAsked('bash'))
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('respects the onQuestion and onApproval switches', () => {
+    const q = makeBlockedNotifier(false, true)
+    q.notifier.onSessionEvent(rootSession(), toolCall('ask_user_question', '{"questions":[{"question":"x"}]}'))
+    expect(q.notify).not.toHaveBeenCalled()
+
+    const a = makeBlockedNotifier(true, false)
+    a.notifier.onSessionEvent(rootSession(), approvalAsked('bash'))
+    expect(a.notify).not.toHaveBeenCalled()
+  })
+
+  it('reports an empty detail when arguments are malformed', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), toolCall('ask_user_question', 'not json'))
+    expect(notify).toHaveBeenCalledWith('question', '', 'root')
   })
 })

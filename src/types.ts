@@ -25,6 +25,18 @@ export interface SessionEvent {
   data: unknown
 }
 
+/** The `tool/call` event data fields this plugin reads. */
+export interface ToolCallData {
+  name?: unknown
+  arguments?: unknown
+}
+
+/** The `approval/asked` event data fields this plugin reads. */
+export interface ApprovalAskedData {
+  toolName?: unknown
+  reason?: unknown
+}
+
 /** The session header fields this plugin reads. */
 export interface SessionHeader {
   id: string
@@ -50,10 +62,16 @@ export interface AgentStatusPayload {
   }
 }
 
-/** Plugin config: `enabled`, `title` and `sound`, all optional with defaults. */
+/** Plugin config: `enabled`, `title`, `sound` and the blocking-action switches, all optional with defaults. */
 export interface NotifyConfig {
   enabled?: boolean
   title?: string
   /** Play a system sound alongside the notification; default `true`. */
   sound?: boolean
+  /** Notify on blocking user-interactions (questions + approvals); default `true`. */
+  onBlocked?: boolean
+  /** Notify when the model asks a question (`ask_user_question`); default `true`. */
+  onQuestion?: boolean
+  /** Notify when the harness waits for approval; default `true`. */
+  onApproval?: boolean
 }

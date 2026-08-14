@@ -2,7 +2,8 @@
  * Copyright (c) 2026 Luozy
  * SPDX-License-Identifier: MIT
  */
-import type { AgentStatusPayload, Session, SessionEvent } from './types.js'
+import { blockedQuestionText } from './notify.js'
+import type { AgentStatusPayload, ApprovalAskedData, Session, SessionEvent, ToolCallData } from './types.js'
 
 /**
  * Tracks root-session turn endings and reports the run's final result exactly
@@ -50,5 +51,40 @@ export class RunEndNotifier {
     if (kind === undefined) return // no turn ended in this activity — nothing to report
     this.reasons.delete(sessionId)
     this.deps.notify(kind, sessionId)
+  }
+}
+
+/**
+ * Fires one notification per blocking user-interaction as it happens: a
+ * question (`tool/call` naming `ask_user_question`) or an approval ask
+ * (`approval/asked`). Unlike {@link RunEndNotifier}, it reports immediately on
+ * each event — no aggregation — because each ask is a separate "the session is
+ * waiting on the user" moment. Subagent sessions are excluded via
+ * `header.origin === 'subagent'`, and the `onQuestion` / `onApproval` switches
+ * let the plugin turn one class off without touching the other.
+ */
+export class BlockedNotifier {
+  constructor(private readonly deps: {
+    /** Emit one notification for a blocking action. */
+    notify: (kind: string, detail: string, sessionId: string) => unknown
+    onQuestion: boolean
+    onApproval: boolean
+  }) {}
+
+  /** Feed `session/event`; report blocking interactions on root sessions only. */
+  onSessionEvent(session: Session, event: SessionEvent): void {
+    if (session.header.origin === 'subagent') return
+    if (event.type === 'tool/call' && this.deps.onQuestion) {
+      const data = event.data as ToolCallData | undefined
+      if (data?.name !== 'ask_user_question') return
+      const detail = typeof data.arguments === 'string' ? blockedQuestionText(data.arguments) : ''
+      this.deps.notify('question', detail, session.header.id)
+    } else if (event.type === 'approval/asked' && this.deps.onApproval) {
+      const data = event.data as ApprovalAskedData | undefined
+      const toolName = typeof data?.toolName === 'string' ? data.toolName : ''
+      const reason = typeof data?.reason === 'string' ? data.reason : ''
+      const detail = toolName === '' ? '' : reason === '' ? toolName : `${toolName} — ${reason}`
+      this.deps.notify('approval', detail, session.header.id)
+    }
   }
 }
