@@ -12,7 +12,14 @@
 # 用法：
 #   curl -fsSL https://raw.githubusercontent.com/pitetow/dsh-notify-on-complete/main/scripts/install.sh | bash
 #   curl -fsSL <同上> | bash -s -- --profile headless   # 指定 profile（默认 web）
-#   curl -fsSL <同上> | bash -s -- --force              # 强制重新下载源码（更新）
+#   curl -fsSL <同上> | bash -s -- --force              # 覆盖更新源码（会先询问确认）
+#   curl -fsSL <同上> | bash -s -- --force --yes        # 覆盖更新，跳过确认（CI/脚本用）
+#   curl -fsSL <同上> | bash -s -- --yes                # 与 --force 同义（不存在目录时无副作用）
+#
+# 更新语义：
+# - 不带 --force 重跑 = 幂等修复（依赖/挂载重新校验），不会覆盖已有源码；
+# - 带 --force = 删除并重新下载源码（本地改动会丢失），覆盖前会询问确认，
+#   加 --yes 跳过确认。
 #
 # 环境变量（可省略）：
 #   DSH_PROFILE     默认 web
@@ -33,10 +40,12 @@ warn() { printf '\033[33m[warn]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
 
 FORCE=false
+YES=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) FORCE=true ;;
-    -h|--help) echo "用法：bash scripts/install.sh [--profile <名>] [--force]"; exit 0 ;;
+    --yes|-y) YES=true ;;
+    -h|--help) echo "用法：bash scripts/install.sh [--profile <名>] [--force] [--yes]"; exit 0 ;;
     --profile) shift; [ $# -ge 1 ] || die "--profile 需要跟一个 profile 名（或用环境变量 DSH_PROFILE）"; PROFILE="$1" ;;
     --profile=*) PROFILE="${1#--profile=}" ;;
     *) die "未知参数: $1（用 -h 查看帮助）" ;;
@@ -52,8 +61,24 @@ command -v dsh  >/dev/null 2>&1 || die "未找到 dsh，请先安装 DeepSeek Ha
 
 # 步骤 1：获取源码
 if [ -d "$PLUGIN_DIR" ] && [ "$FORCE" = false ]; then
-  say "源码已存在：$PLUGIN_DIR（--force 重新下载，或 cd 进去 git pull 更新）"
-else
+  say "源码已存在：$PLUGIN_DIR（不覆盖，仅重新校验依赖与挂载）"
+  say "需要更新源码时加 --force 重新下载（覆盖前会询问确认，加 --yes 跳过）"
+elif [ -d "$PLUGIN_DIR" ] && [ "$YES" = false ]; then
+  if [ ! -t 0 ]; then
+    die "检测到非交互终端（如 curl | bash），无法询问确认。请加 --yes 跳过确认：bash -s -- --force --yes"
+  fi
+  warn "即将删除并重新下载：$PLUGIN_DIR"
+  warn "注意：该目录内的任何本地改动（如调试代码）都会丢失！"
+  printf '[install] 确认覆盖更新？[y/N] '
+  read -r CONFIRM
+  case "$CONFIRM" in
+    y|Y|yes|YES) say "确认覆盖，继续..." ;;
+    *) die "已取消，保留现有源码，未做任何修改。" ;;
+  esac
+fi
+
+# 获取源码（首次安装，或已确认覆盖）
+if [ ! -d "$PLUGIN_DIR" ]; then
   say "下载源码 https://github.com/$REPO (branch: $BRANCH) ..."
   TMP="$(mktemp -d)"
   curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/heads/$BRANCH" -o "$TMP/src.tgz" \

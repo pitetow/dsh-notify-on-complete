@@ -52,7 +52,7 @@ curl -fsSL https://raw.githubusercontent.com/pitetow/dsh-notify-on-complete/main
 
 脚本自动完成 4 件事（全部幂等，可安全重复执行）：
 
-1. 下载源码到 `~/.dsh/plugins/dsh-notify-on-complete/`（已存在则跳过，`--force` 重新下载更新）；
+1. 下载源码到 `~/.dsh/plugins/dsh-notify-on-complete/`（已存在则跳过，**不会覆盖**；加 `--force` 才覆盖更新，覆盖前会询问确认，`--yes` 跳过确认）；
 2. `pnpm install && pnpm build` 构建产物；
 3. `dsh plugin --profile <名> add link:<目录>`：CLI 识别包内 `dsh.bundle.patch` 声明（`cordis.patch.yml`），**自动注册进 profile 的 bundle 栈**，下次启动自动挂载——不需要手动编辑任何配置文件；
 4. 幂等移除旧版残留的手动挂载行，避免双挂载（一次运行弹两条通知）。
@@ -77,6 +77,9 @@ dsh --profile web --dump-config | grep -n notify-on-complete
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pitetow/dsh-notify-on-complete/main/scripts/install.sh | bash -s -- --force
 ```
+
+> `--force` 会删除旧源码重新下载（该目录内的本地改动会丢失），**覆盖前会询问确认**；无人值守场景加 `--yes` 跳过确认：
+> `bash -s -- --force --yes`
 
 或手动：`cd ~/.dsh/plugins/dsh-notify-on-complete && git pull && pnpm install && pnpm run build` 后重跑 `dsh plugin --profile web add link:.`。
 
