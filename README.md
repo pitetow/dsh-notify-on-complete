@@ -130,6 +130,60 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 
 ## 配置
 
+配置写在 **profile 的 `cordis.patch.yml`** 里（用户层，最后应用、按行胜出）：
+
+| profile | 配置文件路径 |
+|---|---|
+| `web`（默认，`dsh web`） | `~/.dsh/profiles/web/cordis.patch.yml` |
+| `headless`（`dsh --profile headless`） | `~/.dsh/profiles/headless/cordis.patch.yml` |
+| 其它 `<名>` | `~/.dsh/profiles/<名>/cordis.patch.yml` |
+
+> 也可写在 home 级 `$DSH_HOME/cordis.patch.yml`（默认 `~/.dsh/cordis.patch.yml`），所有 profile 共享。
+
+配置方式是**用 `id: notify-on-complete` 声明/覆盖这一行**。注意：
+
+- 后应用的层会**整体替换**同名 `id` 行的 `config`（不是按键深度合并），所以要么写全 `id` + `name` + `config`，要么只写你想改的键、其余交给插件默认值。
+- `cordis.patch.yml` 必须是**顶层 YAML 数组**（以 `-` 开头）；全部删光后请写 `[]`。
+
+完整配置示例（所有字段 + 默认值）：
+
+```yaml
+# ~/.dsh/profiles/web/cordis.patch.yml
+- id: notify-on-complete
+  name: dsh-notify-on-complete
+  config:
+    enabled: true        # 总开关；false 完全关闭
+    title: DeepSeek Harness
+    sound: true          # 提示音；false 只弹通知不出声
+    onBlocked: true      # 阻塞通知总开关（提问 + 审批）
+    onQuestion: true     # 提问类通知（仅 onBlocked: true 时生效）
+    onApproval: true     # 审批/权限类通知（仅 onBlocked: true 时生效）
+```
+
+常用场景：
+
+```yaml
+# 仅提示、不要提示音
+- id: notify-on-complete
+  name: dsh-notify-on-complete
+  config:
+    sound: false
+
+# 仅任务完成后提示，提问 / 审批等阻塞不提示
+- id: notify-on-complete
+  name: dsh-notify-on-complete
+  config:
+    onBlocked: false
+
+# 完成后 + 提问都提示，但审批（沙箱提权 / 工具权限）不提示
+- id: notify-on-complete
+  name: dsh-notify-on-complete
+  config:
+    onApproval: false
+```
+
+### 字段表
+
 | 字段 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | `enabled` | boolean | `true` | 设为 `false` 时插件不注册任何监听，完全关闭 |
@@ -140,6 +194,16 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 | `onApproval` | boolean | `true` | 审批/权限类通知开关；仅在 `onBlocked: true` 时生效 |
 
 配置校验在加载时执行（fail loud）：类型错误会在启动时报错，不会静默忽略。
+
+改完配置需重启生效：CLI 一次性运行下次自然生效；`dsh web` 需重启 web 进程。
+
+验证配置是否生效：
+
+```bash
+dsh --profile web --dump-config | grep -n -A 10 notify-on-complete
+```
+
+输出里能看到你写的 `config:` 值即已生效。
 
 ## 平台命令
 
