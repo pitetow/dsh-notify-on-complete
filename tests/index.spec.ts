@@ -70,6 +70,14 @@ function idleSubagent(): unknown[] {
   return [{ status: 'idle', agent: { id: 'child', session: { header: { id: 'child', origin: 'subagent' } } } }]
 }
 
+function rootToolCall(name: string, args = '{}'): unknown[] {
+  return [{ header: { id: 'root' } }, { type: 'tool/call', data: { turn: 1, step: 1, callId: 'c1', name, arguments: args } }]
+}
+
+function rootApprovalAsked(toolName: string, reason?: string): unknown[] {
+  return [{ header: { id: 'root' } }, { type: 'approval/asked', data: { id: 'a1', toolName, ...(reason === undefined ? {} : { reason }) } }]
+}
+
 const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!
 
 function setPlatform(platform: NodeJS.Platform): void {
@@ -191,5 +199,68 @@ describe('apply', () => {
     setPlatform('darwin')
     const ctx = mockCtx()
     expect(() => apply(ctx, { sound: 1 as unknown as NotifyConfig['sound'] })).toThrow(/config\.sound must be a boolean/)
+  })
+
+  it('notifies immediately on an ask_user_question tool call', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx)
+    ctx.emit('session/event', ...rootToolCall('ask_user_question', '{"questions":[{"question":"要如何？"}]}'))
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('需要回答：要如何？ (session: root)')
+  })
+
+  it('notifies immediately on an approval/asked event', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx)
+    ctx.emit('session/event', ...rootApprovalAsked('bash', 'escalate sandbox'))
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('需要批准：bash — escalate sandbox (session: root)')
+  })
+
+  it('does not notify blocked events for subagent sessions', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx)
+    ctx.emit('session/event', { header: { id: 'child', origin: 'subagent' } }, { type: 'tool/call', data: { name: 'ask_user_question', arguments: '{}' } })
+    expect(mockedSpawn).not.toHaveBeenCalled()
+  })
+
+  it('disables blocked notifications when onBlocked is false', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx, { onBlocked: false })
+    ctx.emit('session/event', ...rootToolCall('ask_user_question', '{"questions":[{"question":"x"}]}'))
+    ctx.emit('session/event', ...rootApprovalAsked('bash'))
+    expect(mockedSpawn).not.toHaveBeenCalled()
+  })
+
+  it('disables only questions when onQuestion is false', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx, { onQuestion: false })
+    ctx.emit('session/event', ...rootToolCall('ask_user_question', '{"questions":[{"question":"x"}]}'))
+    expect(mockedSpawn).not.toHaveBeenCalled()
+    ctx.emit('session/event', ...rootApprovalAsked('bash'))
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables only approvals when onApproval is false', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx, { onApproval: false })
+    ctx.emit('session/event', ...rootApprovalAsked('bash'))
+    expect(mockedSpawn).not.toHaveBeenCalled()
+    ctx.emit('session/event', ...rootToolCall('ask_user_question', '{"questions":[{"question":"x"}]}'))
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails loud on non-boolean onBlocked/onQuestion/onApproval', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    expect(() => apply(ctx, { onBlocked: 1 as unknown as NotifyConfig['onBlocked'] })).toThrow(/config\.onBlocked must be a boolean/)
+    expect(() => apply(ctx, { onQuestion: 1 as unknown as NotifyConfig['onQuestion'] })).toThrow(/config\.onQuestion must be a boolean/)
+    expect(() => apply(ctx, { onApproval: 1 as unknown as NotifyConfig['onApproval'] })).toThrow(/config\.onApproval must be a boolean/)
   })
 })

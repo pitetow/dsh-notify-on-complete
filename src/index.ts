@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: MIT
  */
 import type { Context } from '@deepseek-ai/cordis'
-import { buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from './notify.js'
-import { RunEndNotifier } from './notifier.js'
+import { blockedBody, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from './notify.js'
+import { BlockedNotifier, RunEndNotifier } from './notifier.js'
 import type { AgentStatusPayload, NotifyConfig, Session, SessionEvent } from './types.js'
 
 export const name = 'dsh-notify-on-complete'
@@ -19,9 +19,10 @@ export const name = 'dsh-notify-on-complete'
  *
  * Config validation fails loud at load time; `enabled: false` registers
  * nothing; unsupported platforms are skipped with a warning instead of
- * throwing inside event listeners.
+ * throwing inside event listeners. Blocking interactions (questions and
+ * approvals) during a session also fire an immediate notification.
  * @param ctx - the plugin context.
- * @param config - optional `{ enabled?, title?, sound? }`.
+ * @param config - optional { enabled?, title?, sound?, onBlocked?, onQuestion?, onApproval? }.
  */
 export function apply(ctx: Context, config: NotifyConfig = {}): void {
   const enabled = config.enabled ?? true
@@ -35,6 +36,18 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
   const sound = config.sound ?? true
   if (typeof sound !== 'boolean') {
     throw new Error(`dsh-notify-on-complete: config.sound must be a boolean, got ${typeof sound}`)
+  }
+  const onBlocked = config.onBlocked ?? true
+  if (typeof onBlocked !== 'boolean') {
+    throw new Error(`dsh-notify-on-complete: config.onBlocked must be a boolean, got ${typeof onBlocked}`)
+  }
+  const onQuestion = config.onQuestion ?? true
+  if (typeof onQuestion !== 'boolean') {
+    throw new Error(`dsh-notify-on-complete: config.onQuestion must be a boolean, got ${typeof onQuestion}`)
+  }
+  const onApproval = config.onApproval ?? true
+  if (typeof onApproval !== 'boolean') {
+    throw new Error(`dsh-notify-on-complete: config.onApproval must be a boolean, got ${typeof onApproval}`)
   }
   if (!enabled) return
 
@@ -50,6 +63,15 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
     },
   })
 
+  const blockedNotifier = onBlocked ? new BlockedNotifier({
+    notify: (kind: string, detail: string, sessionId: string): void => {
+      spawnNotify(buildCommands(process.platform, title, blockedBody(kind, detail, sessionId)))
+      if (sound) spawnNotify(buildSoundCommands(process.platform))
+    },
+    onQuestion,
+    onApproval,
+  }) : undefined
+
   // The harness's typed `session/event` and `agent/status` declarations live in
   // the unpublished @deepseek-ai/dsh-session / @deepseek-ai/dsh-agent packages,
   // so register with a narrowed cast; the payload shapes are pinned
@@ -59,7 +81,10 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
     listener: (...args: unknown[]) => void,
   ) => () => void
   register('session/event', (...args: unknown[]): void => {
-    notifier.onSessionEvent(args[0] as Session, args[1] as SessionEvent)
+    const session = args[0] as Session
+    const event = args[1] as SessionEvent
+    notifier.onSessionEvent(session, event)
+    blockedNotifier?.onSessionEvent(session, event)
   })
   register('agent/status', (...args: unknown[]): void => {
     notifier.onAgentStatus(args[0] as AgentStatusPayload)
