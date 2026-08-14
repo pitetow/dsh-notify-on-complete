@@ -26,7 +26,7 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => mockChild.makeChild()),
 }))
 
-import { buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from '../src/notify.js'
+import { blockedBody, blockedQuestionText, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from '../src/notify.js'
 
 const mockedSpawn = vi.mocked(spawn)
 
@@ -154,5 +154,41 @@ describe('spawnNotify', () => {
   it('returns undefined when no candidate remains', () => {
     expect(spawnNotify([])).toBeUndefined()
     expect(mockedSpawn).not.toHaveBeenCalled()
+  })
+})
+
+describe('blockedQuestionText', () => {
+  it('extracts the first question text', () => {
+    expect(blockedQuestionText('{"questions":[{"id":"a","question":"要如何？"},{"id":"b","question":"第二个"}]}')).toBe('要如何？')
+  })
+
+  it('truncates long questions to 80 chars with an ellipsis', () => {
+    const long = '问'.repeat(100)
+    expect(blockedQuestionText(`{"questions":[{"question":"${long}"}]}`)).toBe(`${'问'.repeat(80)}…`)
+  })
+
+  it('returns an empty string on invalid JSON', () => {
+    expect(blockedQuestionText('not json')).toBe('')
+  })
+
+  it('returns an empty string when questions are missing or malformed', () => {
+    expect(blockedQuestionText('{"questions":[]}')).toBe('')
+    expect(blockedQuestionText('{"questions":[{"id":"a"}]}')).toBe('')
+    expect(blockedQuestionText('{"questions":[{"question":""}]}')).toBe('')
+    expect(blockedQuestionText('{"questions":[{"question":123}]}')).toBe('')
+  })
+})
+
+describe('blockedBody', () => {
+  it('builds the question body', () => {
+    expect(blockedBody('question', '要如何？', 'root')).toBe('需要回答：要如何？ (session: root)')
+  })
+
+  it('builds the approval body', () => {
+    expect(blockedBody('approval', 'bash — escalate', 'root')).toBe('需要批准：bash — escalate (session: root)')
+  })
+
+  it('falls back to the generic text when detail is empty', () => {
+    expect(blockedBody('question', '', 'root')).toBe('需要处理 (session: root)')
   })
 })

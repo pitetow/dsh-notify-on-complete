@@ -127,3 +127,43 @@ export function spawnNotify(commands: NotifyCommand[]): ReturnType<typeof spawn>
   child.unref()
   return child
 }
+
+/** Maximum length of a question's text carried into a notification body. */
+const QUESTION_TEXT_MAX = 80
+
+/**
+ * Extract the first question's text from an `ask_user_question` tool call's
+ * raw `arguments` JSON string, trimmed and truncated for a notification body.
+ * Returns an empty string when the JSON is malformed or the text is absent.
+ * @param argumentsString - the raw `arguments` string from a `tool/call` event.
+ * @returns the first question's trimmed text, truncated to {@link QUESTION_TEXT_MAX} chars.
+ */
+export function blockedQuestionText(argumentsString: string): string {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(argumentsString)
+  } catch {
+    return ''
+  }
+  const questions = (parsed as { questions?: unknown } | undefined)?.questions
+  if (!Array.isArray(questions) || questions.length === 0) return ''
+  const question = (questions[0] as { question?: unknown } | undefined)?.question
+  if (typeof question !== 'string' || question.trim() === '') return ''
+  const text = question.trim()
+  return text.length > QUESTION_TEXT_MAX ? `${text.slice(0, QUESTION_TEXT_MAX)}…` : text
+}
+
+/**
+ * Build a blocking-action notification body: a kind label plus the extracted
+ * detail, with the session id appended. An empty detail falls back to the
+ * generic "needs attention" text.
+ * @param kind - `'question'` or `'approval'`.
+ * @param detail - the extracted question text, or `toolName — reason`.
+ * @param sessionId - the root session id to append.
+ * @returns the final notification body.
+ */
+export function blockedBody(kind: string, detail: string, sessionId: string): string {
+  if (detail === '') return `需要处理 (session: ${sessionId})`
+  const label = kind === 'question' ? '需要回答' : kind === 'approval' ? '需要批准' : '需要处理'
+  return `${label}：${detail} (session: ${sessionId})`
+}
