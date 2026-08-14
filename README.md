@@ -33,31 +33,58 @@ DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面�
 
 ---
 
-## 安装
+## 安装（npm 一键）
 
-dsh CLI 的插件通过**用户级 profile** 加载：profile 目录在 `~/.dsh/profiles/<profile名>/`，其中 `cordis.patch.yml` 是用户层配置，`package.json` 的 dependencies 是 Loader 解析 bare 插件名的依据。安装分两步：**① 把包装进 profile → ② 在用户层声明插件条目**。
+**前置**：已装好 DSH（`dsh web` 能正常运行），Node.js ^22。
 
-### 第 1 步：构建插件
+```bash
+npx -y --package @deepseek-ai/dsh dsh plugin --profile web add dsh-notify-on-complete
+```
+
+一条命令完成安装 + 挂载：包内声明了 `dsh.bundle.patch`（`cordis.patch.yml`），CLI 会自动把插件注册进 profile 的 bundle 栈，下次启动即生效——**不需要手动编辑任何配置文件**。
+
+> `--profile web` 里的 `web` 换成你实际使用的 profile 名（`headless` 等）；`dsh --profile <名字>` 启动哪个，就装进哪个。
+
+验证已加载（可选）：
+
+```bash
+dsh --profile web --dump-config | grep -n notify-on-complete
+```
+
+能输出 `- id: notify-on-complete` 及其后的 `name: dsh-notify-on-complete` 行，说明插件已进入合成树。再跑一次真实任务，看到桌面通知弹出即安装成功。
+
+重启生效：
+
+- **CLI 一次性运行**：下次运行 `dsh --profile headless "任务"` 时自然生效，无需额外操作。
+- **Web GUI**：重启 web 进程（结束当前 `dsh web` 进程后重新启动）。若部署启用了 HMR 热更新，保存文件后会自动生效。
+
+### 更新
+
+```bash
+dsh plugin --profile web add dsh-notify-on-complete
+```
+
+或把 `~/.dsh/profiles/web/package.json` 里的版本号改高后 `pnpm install`。
+
+### 卸载
+
+```bash
+dsh plugin --profile web remove dsh-notify-on-complete
+```
+
+然后重启 dsh 进程。若之前手动改过 `cordis.patch.yml`，顺手删掉旧条目。
+
+<details>
+<summary><b>手动安装（从源码 / 本地开发调试，与 npm 一键二选一）</b></summary>
+
+把依赖指向本地源码（`link:` 是符号链接，改代码后重建即生效，适合调试）：
 
 ```bash
 cd /path/to/dsh-notify-on-complete
 pnpm install
-pnpm run build   # 产物输出到 lib/
-```
-
-### 第 2 步：把插件安装进 profile
-
-用 `dsh plugin` 子命令（它会在 profile 目录内转发给 pnpm，并把包名写进 profile 的依赖清单）：
-
-```bash
-# 本地源码形式（推荐开发期使用；link: 是符号链接，改代码后重建即生效）
+pnpm run build                              # 产物输出到 lib/
 dsh plugin --profile web add link:/path/to/dsh-notify-on-complete
-
-# 或者用 file: 形式（pnpm 复制安装，适合不打算改插件源码时）
-dsh plugin --profile web add file:/path/to/dsh-notify-on-complete
 ```
-
-> profile 名可以是 `web`、`headless` 或你自定义的任意 profile。用 `dsh --profile <名字>` 启动哪个，就装进哪个。
 
 装完后检查 `~/.dsh/profiles/web/package.json`，dependencies 里应出现 `dsh-notify-on-complete`：
 
@@ -65,11 +92,7 @@ dsh plugin --profile web add file:/path/to/dsh-notify-on-complete
 grep dsh-notify ~/.dsh/profiles/web/package.json
 ```
 
-> 预期会看到一行提示：`dsh: warning: dsh-notify-on-complete declares no dsh.bundle — installed as a plain dependency, not a profile layer`。这是**正常的**——本插件是普通功能插件（function plugin），不需要成为 bundle 层，这条警告只是说明它不会自动加入层叠，需要第 3 步手动声明。
-
-### 第 3 步：在用户层声明插件条目
-
-编辑 `~/.dsh/profiles/web/cordis.patch.yml`（当前是空的 `[]`），加入：
+> 若 CLI 提示 `declares no dsh.bundle — installed as a plain dependency`，说明它没有自动挂载，需要在 profile 用户层手动声明。编辑 `~/.dsh/profiles/web/cordis.patch.yml`，加入：
 
 ```yaml
 # 你的 profile 用户层（cordis.patch.yml）
@@ -80,20 +103,9 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
     title: DeepSeek Harness    # 通知标题，不写也行
 ```
 
-### 第 4 步：重启 dsh 进程
+> 若之前用 npm 一键装过，再手动挂载会造成双挂载（一次运行弹两条通知）——切换通道前先 `dsh plugin --profile web remove dsh-notify-on-complete`。
 
-`cordis.patch.yml` 的变更需要 dsh 进程重新加载：
-
-- **CLI 一次性运行**：下次运行 `dsh --profile headless "任务"` 时自然生效，无需额外操作。
-- **Web GUI**：重启 web 进程（结束当前 `dsh web` 进程后重新启动）。若部署启用了 `cordis.patch.yml` 的 HMR 热更新，保存文件后会自动生效。
-
-### 第 5 步：验证已加载
-
-```bash
-dsh --profile web --dump-config | grep -n notify-on-complete
-```
-
-能输出 `- id: notify-on-complete` 及其后的 `name: dsh-notify-on-complete` 行，说明插件条目已进入合成树。再跑一次真实任务，看到桌面通知弹出即安装成功。
+</details>
 
 ---
 
@@ -116,16 +128,13 @@ dsh --profile web --dump-config | grep -n notify-on-complete
 
 > macOS 首次使用可能需要给终端应用授予"通知"权限（系统设置 → 通知）。
 
-## 卸载
-
-```bash
-# 1. 从 cordis.patch.yml 删除第 3 步加的条目
-# 2. 从 profile 移除依赖
-dsh plugin --profile web remove dsh-notify-on-complete
-# 3. 重启 dsh 进程
-```
-
 ## 常见问题
+
+**Q：报 `minimum release age` / 版本不足 24h？**
+刚发布的版本 pnpm 会拦截 24 小时内的新版本。等 24h 再装，或直接重跑一次安装命令（pnpm 会提示并放行）。
+
+**Q：一次运行弹两条通知？**
+双挂载：profile 的 `cordis.patch.yml` 里还留着旧的手动挂载行。删掉那段 `- id: notify-on-complete` 条目，只保留 bundle 自动挂载即可。
 
 **Q：装了但通知不弹？**
 1. 先确认加载成功：`dsh --profile web --dump-config | grep notify-on-complete`。

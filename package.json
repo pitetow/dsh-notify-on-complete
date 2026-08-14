@@ -5,6 +5,13 @@
   "type": "module",
   "license": "MIT",
   "author": "Luozy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pitetow/dsh-notify-on-complete"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./lib/types/index.d.ts",
@@ -12,10 +19,16 @@
     }
   },
   "files": [
-    "lib"
+    "lib",
+    "cordis.patch.yml"
   ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/add-header.mjs",
     "prepare": "pnpm run build",
     "prepublishOnly": "pnpm run test && pnpm run typecheck",
     "typecheck": "tsc -p tsconfig.json --noEmit",
