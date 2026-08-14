@@ -26,7 +26,7 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => mockChild.makeChild()),
 }))
 
-import { buildBody, buildCommands, isSupportedPlatform, resultText, spawnNotify } from '../src/notify.js'
+import { buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from '../src/notify.js'
 
 const mockedSpawn = vi.mocked(spawn)
 
@@ -60,18 +60,18 @@ describe('buildCommands', () => {
     expect(cmd.command).toBe('osascript')
     expect(cmd.args).toEqual([
       '-e',
-      'display notification "任务已完成 (session: a)" with title "DeepSeek Harness"',
+      'display notification "任务已完成 (session: a)" with title "DeepSeek Harness" sound name "Glass"',
     ])
   })
 
   it('escapes backslashes and quotes for AppleScript', () => {
     const [cmd] = buildCommands('darwin', 'Title "x"', 'Body \\ y')
-    expect(cmd.args[1]).toBe('display notification "Body \\\\ y" with title "Title \\"x\\""')
+    expect(cmd.args[1]).toBe('display notification "Body \\\\ y" with title "Title \\"x\\"" sound name "Glass"')
   })
 
   it('escapes control characters for AppleScript (no raw newlines in literals)', () => {
     const [cmd] = buildCommands('darwin', 'T', 'Line1\nLine2\tTab\rRet')
-    expect(cmd.args[1]).toBe('display notification "Line1\\nLine2\\tTab\\rRet" with title "T"')
+    expect(cmd.args[1]).toBe('display notification "Line1\\nLine2\\tTab\\rRet" with title "T" sound name "Glass"')
   })
 
   it('builds Linux notify-send with a kdialog fallback', () => {
@@ -85,6 +85,7 @@ describe('buildCommands', () => {
     const [cmd] = buildCommands('win32', 'T', "B'x")
     expect(cmd.command).toBe('powershell')
     expect(cmd.args.join(' ')).toContain("$ws.Popup('B''x', 5, 'T', 64)")
+    expect(cmd.args.join(' ')).toContain('[System.Media.SystemSounds]::Asterisk.Play()')
   })
 
   it('throws on unsupported platforms', () => {
@@ -103,6 +104,20 @@ describe('isSupportedPlatform', () => {
     for (const platform of ['aix', 'freebsd', 'sunos', 'android', 'cygwin'] as NodeJS.Platform[]) {
       expect(isSupportedPlatform(platform)).toBe(false)
     }
+  })
+})
+
+describe('buildSoundCommands', () => {
+  it('returns the canberra → paplay fallback chain on linux', () => {
+    expect(buildSoundCommands('linux')).toEqual([
+      { command: 'canberra-gtk-play', args: ['-i', 'complete'] },
+      { command: 'paplay', args: ['/usr/share/sounds/freedesktop/stereo/complete.oga'] },
+    ])
+  })
+
+  it('returns an empty chain on platforms whose notification command embeds the sound', () => {
+    expect(buildSoundCommands('darwin')).toEqual([])
+    expect(buildSoundCommands('win32')).toEqual([])
   })
 })
 

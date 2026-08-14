@@ -70,7 +70,7 @@ export function buildCommands(platform: NodeJS.Platform, title: string, body: st
     case 'darwin':
       return [{
         command: 'osascript',
-        args: ['-e', `display notification "${escapeAppleScript(body)}" with title "${escapeAppleScript(title)}"`],
+        args: ['-e', `display notification "${escapeAppleScript(body)}" with title "${escapeAppleScript(title)}" sound name "Glass"`],
       }]
     case 'linux':
       return [
@@ -80,10 +80,32 @@ export function buildCommands(platform: NodeJS.Platform, title: string, body: st
     case 'win32':
       return [{
         command: 'powershell',
-        args: ['-NoProfile', '-Command', `$ws = New-Object -ComObject WScript.Shell; $ws.Popup('${escapePowerShell(body)}', 5, '${escapePowerShell(title)}', 64)`],
+        args: ['-NoProfile', '-Command', `$ws = New-Object -ComObject WScript.Shell; $ws.Popup('${escapePowerShell(body)}', 5, '${escapePowerShell(title)}', 64); [System.Media.SystemSounds]::Asterisk.Play()`],
       }]
     default:
       throw new Error(`dsh-notify-on-complete: unsupported platform "${platform}"`)
+  }
+}
+
+/**
+ * Candidate sound commands for a platform, most preferred first. macOS and
+ * Windows already embed the sound in the notification command itself
+ * (osascript `sound name` / .NET SystemSounds), so only Linux needs a
+ * standalone chain: canberra-gtk-play (plays the themed completion chime)
+ * falls back to paplay with the freedesktop sound theme's audio file.
+ * @param platform - `process.platform` value.
+ * @returns the ordered candidate sound commands; empty on platforms whose
+ * notification command already plays the sound.
+ */
+export function buildSoundCommands(platform: NodeJS.Platform): NotifyCommand[] {
+  switch (platform) {
+    case 'linux':
+      return [
+        { command: 'canberra-gtk-play', args: ['-i', 'complete'] },
+        { command: 'paplay', args: ['/usr/share/sounds/freedesktop/stereo/complete.oga'] },
+      ]
+    default:
+      return []
   }
 }
 

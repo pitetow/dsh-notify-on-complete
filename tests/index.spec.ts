@@ -99,7 +99,7 @@ describe('apply', () => {
     expect(mockedSpawn).toHaveBeenCalledTimes(1)
     expect(mockedSpawn).toHaveBeenCalledWith('osascript', [
       '-e',
-      'display notification "任务已完成 (session: root)" with title "T"',
+      'display notification "任务已完成 (session: root)" with title "T" sound name "Glass"',
     ], { detached: true, stdio: 'ignore' })
   })
 
