@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 Luozy
+ * SPDX-License-Identifier: MIT
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { spawn } from 'node:child_process'
 

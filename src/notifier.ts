@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 Luozy
+ * SPDX-License-Identifier: MIT
+ */
 import type { AgentStatusPayload, Session, SessionEvent } from './types.js'
 
 /**

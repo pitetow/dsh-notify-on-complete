@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2026 Luozy
+ * SPDX-License-Identifier: MIT
+ */
+/**
  * Structural event types for the harness `session/event` feed and the
  * `agent/status` live lifecycle bus.
  * Deliberately minimal: only the fields this plugin reads, so the plugin does

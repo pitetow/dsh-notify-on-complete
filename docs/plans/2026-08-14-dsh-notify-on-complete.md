@@ -1,5 +1,7 @@
 # dsh-notify-on-complete Implementation Plan
 
+> Copyright (c) 2026 Luozy · SPDX-License-Identifier: MIT
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A standalone, zero-runtime-dependency Cordis plugin that fires an OS desktop notification whenever a dsh CLI run ends, distinguishing success/error/abort.

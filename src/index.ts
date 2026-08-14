@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 Luozy
+ * SPDX-License-Identifier: MIT
+ */
 import type { Context } from '@deepseek-ai/cordis'
 import { buildBody, buildCommands, isSupportedPlatform, resultText, spawnNotify } from './notify.js'
 import { RunEndNotifier } from './notifier.js'

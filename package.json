@@ -4,6 +4,7 @@
   "description": "DeepSeek Harness plugin: desktop notification when a run ends",
   "type": "module",
   "license": "MIT",
+  "author": "Luozy",
   "exports": {
     ".": {
       "types": "./lib/types/index.d.ts",

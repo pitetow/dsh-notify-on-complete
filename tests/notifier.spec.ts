@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 Luozy
+ * SPDX-License-Identifier: MIT
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { RunEndNotifier } from '../src/notifier.js'
 import type { AgentStatusPayload, Session, SessionEvent } from '../src/types.js'

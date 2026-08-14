@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 Luozy
+ * SPDX-License-Identifier: MIT
+ */
 import { spawn } from 'node:child_process'
 
 /** A notification command: executable + argv, spawned without a shell. */

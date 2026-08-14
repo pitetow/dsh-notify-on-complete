@@ -1,4 +1,6 @@
 {
+  // Copyright (c) 2026 Luozy
+  // SPDX-License-Identifier: MIT
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",

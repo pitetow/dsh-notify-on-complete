@@ -1,5 +1,7 @@
 # dsh-notify-on-complete 设计文档
 
+> Copyright (c) 2026 Luozy · SPDX-License-Identifier: MIT
+
 日期：2026-08-14
 状态：已批准
 
