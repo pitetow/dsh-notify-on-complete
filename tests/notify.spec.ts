@@ -83,9 +83,11 @@ describe('buildCommands', () => {
 
   it('builds the Windows PowerShell popup and escapes single quotes', () => {
     const [cmd] = buildCommands('win32', 'T', "B'x")
+    const joined = cmd.args.join(' ')
     expect(cmd.command).toBe('powershell')
-    expect(cmd.args.join(' ')).toContain("$ws.Popup('B''x', 5, 'T', 64)")
-    expect(cmd.args.join(' ')).toContain('[System.Media.SystemSounds]::Asterisk.Play()')
+    expect(joined).toContain("$ws.Popup('B''x', 5, 'T', 64)")
+    expect(joined).toContain('[System.Media.SystemSounds]::Asterisk.Play()')
+    expect(joined.indexOf('[System.Media.SystemSounds]::Asterisk.Play()')).toBeLessThan(joined.indexOf('$ws.Popup('))
   })
 
   it('throws on unsupported platforms', () => {
@@ -118,6 +120,8 @@ describe('buildSoundCommands', () => {
   it('returns an empty chain on platforms whose notification command embeds the sound', () => {
     expect(buildSoundCommands('darwin')).toEqual([])
     expect(buildSoundCommands('win32')).toEqual([])
+    // Never throws, even on unsupported platforms — callers rely on the empty chain.
+    expect(buildSoundCommands('aix' as NodeJS.Platform)).toEqual([])
   })
 })
 

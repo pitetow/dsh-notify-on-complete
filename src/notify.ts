@@ -80,7 +80,7 @@ export function buildCommands(platform: NodeJS.Platform, title: string, body: st
     case 'win32':
       return [{
         command: 'powershell',
-        args: ['-NoProfile', '-Command', `$ws = New-Object -ComObject WScript.Shell; $ws.Popup('${escapePowerShell(body)}', 5, '${escapePowerShell(title)}', 64); [System.Media.SystemSounds]::Asterisk.Play()`],
+        args: ['-NoProfile', '-Command', `[System.Media.SystemSounds]::Asterisk.Play(); $ws = New-Object -ComObject WScript.Shell; $ws.Popup('${escapePowerShell(body)}', 5, '${escapePowerShell(title)}', 64)`],
       }]
     default:
       throw new Error(`dsh-notify-on-complete: unsupported platform "${platform}"`)
