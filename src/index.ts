@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 import type { Context } from '@deepseek-ai/cordis'
-import { buildBody, buildCommands, isSupportedPlatform, resultText, spawnNotify } from './notify.js'
+import { buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from './notify.js'
 import { RunEndNotifier } from './notifier.js'
 import type { AgentStatusPayload, NotifyConfig, Session, SessionEvent } from './types.js'
 
@@ -21,7 +21,7 @@ export const name = 'dsh-notify-on-complete'
  * nothing; unsupported platforms are skipped with a warning instead of
  * throwing inside event listeners.
  * @param ctx - the plugin context.
- * @param config - optional `{ enabled?, title? }`.
+ * @param config - optional `{ enabled?, title?, sound? }`.
  */
 export function apply(ctx: Context, config: NotifyConfig = {}): void {
   const enabled = config.enabled ?? true
@@ -31,6 +31,10 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
   }
   if (typeof title !== 'string') {
     throw new Error(`dsh-notify-on-complete: config.title must be a string, got ${typeof title}`)
+  }
+  const sound = config.sound ?? true
+  if (typeof sound !== 'boolean') {
+    throw new Error(`dsh-notify-on-complete: config.sound must be a boolean, got ${typeof sound}`)
   }
   if (!enabled) return
 
@@ -42,6 +46,7 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
   const notifier = new RunEndNotifier({
     notify: (kind: string, sessionId: string): void => {
       spawnNotify(buildCommands(process.platform, title, buildBody(resultText(kind), sessionId)))
+      if (sound) spawnNotify(buildSoundCommands(process.platform))
     },
   })
 

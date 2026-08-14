@@ -50,8 +50,10 @@ export interface AgentStatusPayload {
   }
 }
 
-/** Plugin config: `enabled` and `title`, both optional with defaults. */
+/** Plugin config: `enabled`, `title` and `sound`, all optional with defaults. */
 export interface NotifyConfig {
   enabled?: boolean
   title?: string
+  /** Play a system sound alongside the notification; default `true`. */
+  sound?: boolean
 }

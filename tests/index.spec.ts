@@ -166,4 +166,30 @@ describe('apply', () => {
     expect(ctx.on).not.toHaveBeenCalled()
     expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('unsupported platform'))
   })
+
+  it('spawns the Linux sound command in addition to the notification', () => {
+    setPlatform('linux')
+    const ctx = mockCtx()
+    apply(ctx)
+    ctx.emit('session/event', ...rootTurnEnd('completed'))
+    ctx.emit('agent/status', ...idleRoot())
+    expect(mockedSpawn).toHaveBeenCalledTimes(2)
+    expect(mockedSpawn.mock.calls[1]![0]).toBe('canberra-gtk-play')
+  })
+
+  it('skips the sound when config.sound is false', () => {
+    setPlatform('linux')
+    const ctx = mockCtx()
+    apply(ctx, { sound: false })
+    ctx.emit('session/event', ...rootTurnEnd('completed'))
+    ctx.emit('agent/status', ...idleRoot())
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    expect(mockedSpawn.mock.calls[0]![0]).toBe('notify-send')
+  })
+
+  it('fails loud on a non-boolean sound', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    expect(() => apply(ctx, { sound: 1 as unknown as NotifyConfig['sound'] })).toThrow(/config\.sound must be a boolean/)
+  })
 })
