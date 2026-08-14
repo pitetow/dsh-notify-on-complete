@@ -14,6 +14,10 @@ function subagentSession(id: string): Session {
   return { header: { id, origin: 'subagent' } }
 }
 
+function sessionWithTitle(id: string, title: string): Session {
+  return { header: { id }, events: [{ type: 'session/title', data: { title } }] }
+}
+
 function turnEnd(kind: string): SessionEvent {
   return { type: 'turn/end', data: { turn: 1, reason: { kind } } }
 }
@@ -50,7 +54,7 @@ describe('RunEndNotifier', () => {
     notifier.onSessionEvent(rootSession(), turnEnd('completed')) // round 3
     notifier.onAgentStatus(idle({ id: 'root', session: rootSession() }))
     expect(notify).toHaveBeenCalledTimes(1)
-    expect(notify).toHaveBeenCalledWith('completed', 'root')
+    expect(notify).toHaveBeenCalledWith('completed', 'root', '')
   })
 
   it('reports the failing kind of the last turn when a later turn errors', () => {
@@ -59,7 +63,7 @@ describe('RunEndNotifier', () => {
     notifier.onSessionEvent(rootSession(), turnEnd('error'))
     notifier.onAgentStatus(idle({ id: 'root', session: rootSession() }))
     expect(notify).toHaveBeenCalledTimes(1)
-    expect(notify).toHaveBeenCalledWith('error', 'root')
+    expect(notify).toHaveBeenCalledWith('error', 'root', '')
   })
 
   it('reports aborted and max-tokens kinds verbatim', () => {
@@ -67,7 +71,7 @@ describe('RunEndNotifier', () => {
       const { notifier, notify } = makeNotifier()
       notifier.onSessionEvent(rootSession(), turnEnd(kind))
       notifier.onAgentStatus(idle({ id: 'root', session: rootSession() }))
-      expect(notify).toHaveBeenCalledWith(kind, 'root')
+      expect(notify).toHaveBeenCalledWith(kind, 'root', '')
     }
   })
 
@@ -123,7 +127,15 @@ describe('RunEndNotifier', () => {
     const { notifier, notify } = makeNotifier()
     notifier.onSessionEvent(rootSession(), { type: 'turn/end', data: { turn: 1 } })
     notifier.onAgentStatus(idle({ id: 'root', session: rootSession() }))
-    expect(notify).toHaveBeenCalledWith('unknown', 'root')
+    expect(notify).toHaveBeenCalledWith('unknown', 'root', '')
+  })
+
+  it('passes the latest session title through at idle', () => {
+    const { notifier, notify } = makeNotifier()
+    const session = sessionWithTitle('root', '修复登录bug')
+    notifier.onSessionEvent(session, turnEnd('completed'))
+    notifier.onAgentStatus(idle({ id: 'root', session }))
+    expect(notify).toHaveBeenCalledWith('completed', 'root', '修复登录bug')
   })
 })
 
@@ -131,19 +143,19 @@ describe('BlockedNotifier', () => {
   it('notifies on an ask_user_question tool call with the question text', () => {
     const { notifier, notify } = makeBlockedNotifier()
     notifier.onSessionEvent(rootSession(), toolCall('ask_user_question', '{"questions":[{"question":"要如何？"}]}'))
-    expect(notify).toHaveBeenCalledWith('question', '要如何？', 'root')
+    expect(notify).toHaveBeenCalledWith('question', '要如何？', 'root', '')
   })
 
   it('notifies on an approval/asked event with tool name and reason', () => {
     const { notifier, notify } = makeBlockedNotifier()
     notifier.onSessionEvent(rootSession(), approvalAsked('bash', 'escalate sandbox'))
-    expect(notify).toHaveBeenCalledWith('approval', 'bash — escalate sandbox', 'root')
+    expect(notify).toHaveBeenCalledWith('approval', 'bash — escalate sandbox', 'root', '')
   })
 
   it('omits the reason when approval/asked has none', () => {
     const { notifier, notify } = makeBlockedNotifier()
     notifier.onSessionEvent(rootSession(), approvalAsked('bash'))
-    expect(notify).toHaveBeenCalledWith('approval', 'bash', 'root')
+    expect(notify).toHaveBeenCalledWith('approval', 'bash', 'root', '')
   })
 
   it('ignores non-ask-user tool calls', () => {
@@ -179,24 +191,33 @@ describe('BlockedNotifier', () => {
   it('reports an empty detail when arguments are malformed', () => {
     const { notifier, notify } = makeBlockedNotifier()
     notifier.onSessionEvent(rootSession(), toolCall('ask_user_question', 'not json'))
-    expect(notify).toHaveBeenCalledWith('question', '', 'root')
+    expect(notify).toHaveBeenCalledWith('question', '', 'root', '')
   })
 
   it('reports an empty detail when arguments is not a string', () => {
     const { notifier, notify } = makeBlockedNotifier()
     notifier.onSessionEvent(rootSession(), { type: 'tool/call', data: { name: 'ask_user_question', arguments: 123 } })
-    expect(notify).toHaveBeenCalledWith('question', '', 'root')
+    expect(notify).toHaveBeenCalledWith('question', '', 'root', '')
   })
 
   it('reports an empty detail when approval/asked has no tool name', () => {
     const { notifier, notify } = makeBlockedNotifier()
     notifier.onSessionEvent(rootSession(), { type: 'approval/asked', data: { id: 'a1' } })
-    expect(notify).toHaveBeenCalledWith('approval', '', 'root')
+    expect(notify).toHaveBeenCalledWith('approval', '', 'root', '')
   })
 
   it('ignores a tool/call event without data', () => {
     const { notifier, notify } = makeBlockedNotifier()
     notifier.onSessionEvent(rootSession(), { type: 'tool/call', data: undefined })
     expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('passes the session title through for questions and approvals', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    const session = sessionWithTitle('root', '修复登录bug')
+    notifier.onSessionEvent(session, toolCall('ask_user_question', '{"questions":[{"question":"要如何？"}]}'))
+    expect(notify).toHaveBeenCalledWith('question', '要如何？', 'root', '修复登录bug')
+    notifier.onSessionEvent(session, approvalAsked('bash'))
+    expect(notify).toHaveBeenCalledWith('approval', 'bash', 'root', '修复登录bug')
   })
 })

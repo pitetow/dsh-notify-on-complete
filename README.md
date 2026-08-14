@@ -17,7 +17,7 @@ DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面�
 1. **`session/event` → `turn/end`**：记录根会话（`origin !== 'subagent'`）最近一次轮次结束的 `reason.kind`。一次运行可能跨多个轮次（goal 多轮、follow-up、steering），每一轮都有自己的 `turn/end`，插件只记住**最后一次**的结果。
 2. **`agent/status` → `'idle'`**：这是 harness 自己定义的"运行结束"信号（web 界面的 running 指示器、`agent.whenIdle()` 都基于它）。根 agent 回到 idle 表示整段活动（含所有轮次）收敛完成，此时把记下的最终结果发出去，并清除记录。
 
-所以**每条通知对应一次完整的运行**，而不是每一轮：多轮 goal run 只在整场跑完时弹一条，且正文是最终结果；中途的"任务已完成"不会提前弹出。通知正文格式：`结果文本 (session: 会话ID)`，例如 `任务已完成 (session: 3f9a…)`。通知命令以 `detached: true` + `unref()` 发出，harness 正常退出或崩溃都不会影响通知送达。
+所以**每条通知对应一次完整的运行**，而不是每一轮：多轮 goal run 只在整场跑完时弹一条，且正文是最终结果；中途的"任务已完成"不会提前弹出。通知正文格式：`结果文本 — 会话标题 (session: 会话ID)`，例如 `任务已完成 — 修复登录bug (session: 3f9a…)`；会话标题还没生成时退化为 `结果文本 (session: 会话ID)`。标题来自会话日志里最后一条 `session/title` 事件，是异步投影——极早期通知（如会话刚开始就提问）可能还没有标题，属预期。通知命令以 `detached: true` + `unref()` 发出，harness 正常退出或崩溃都不会影响通知送达。
 
 | `reason.kind` | 通知正文 |
 |---|---|

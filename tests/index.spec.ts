@@ -254,6 +254,18 @@ describe('apply', () => {
     expect(mockedSpawn.mock.calls[1]![1]!.join(' ')).toContain('任务已完成')
   })
 
+  it('includes the session title in both run-ended and blocked bodies', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx)
+    const session = { header: { id: 'root' }, events: [{ type: 'session/title', data: { title: '修复登录bug' } }] }
+    ctx.emit('session/event', session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+    ctx.emit('agent/status', { status: 'idle', agent: { id: 'root', session } })
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('任务已完成 — 修复登录bug (session: root)')
+    ctx.emit('session/event', session, { type: 'tool/call', data: { name: 'ask_user_question', arguments: '{"questions":[{"question":"要如何？"}]}' } })
+    expect(mockedSpawn.mock.calls[1]![1]!.join(' ')).toContain('需要回答：要如何？ — 修复登录bug (session: root)')
+  })
+
   it('disables only questions when onQuestion is false', () => {
     setPlatform('darwin')
     const ctx = mockCtx()

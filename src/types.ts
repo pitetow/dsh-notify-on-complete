@@ -48,6 +48,8 @@ export interface SessionHeader {
 /** The session object delivered to `session/event` listeners. */
 export interface Session {
   header: SessionHeader
+  /** The session's full event log, in order; read to find the latest title. */
+  events?: readonly SessionEvent[]
 }
 
 /**

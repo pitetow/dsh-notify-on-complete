@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 import { spawn } from 'node:child_process'
+import type { SessionEvent } from './types.js'
 
 /** A notification command: executable + argv, spawned without a shell. */
 export interface NotifyCommand {
@@ -29,9 +30,17 @@ export function resultText(kind: string): string {
   }
 }
 
-/** Notification body: result text plus the root session id. */
-export function buildBody(result: string, sessionId: string): string {
-  return `${result} (session: ${sessionId})`
+/**
+ * Notification body: result text, optionally the session title, plus the root
+ * session id. An empty title is omitted.
+ * @param result - the result text.
+ * @param sessionId - the root session id.
+ * @param title - the latest session title, or '' when none exists yet.
+ * @returns the final notification body.
+ */
+export function buildBody(result: string, sessionId: string, title = ''): string {
+  const body = title === '' ? result : `${result} — ${title}`
+  return `${body} (session: ${sessionId})`
 }
 
 /**
@@ -128,15 +137,21 @@ export function spawnNotify(commands: NotifyCommand[]): ReturnType<typeof spawn>
   return child
 }
 
-/** Maximum length of a question's text carried into a notification body. */
-const QUESTION_TEXT_MAX = 80
+/** Maximum length of a text fragment (question or title) carried into a notification body. */
+const BODY_TEXT_MAX = 80
+
+/** Truncate text to `max` code points, appending an ellipsis when it overflows. */
+function truncateText(text: string, max: number): string {
+  const chars = [...text]
+  return chars.length > max ? `${chars.slice(0, max).join('')}…` : text
+}
 
 /**
  * Extract the first question's text from an `ask_user_question` tool call's
  * raw `arguments` JSON string, trimmed and truncated for a notification body.
  * Returns an empty string when the JSON is malformed or the text is absent.
  * @param argumentsString - the raw `arguments` string from a `tool/call` event.
- * @returns the first question's trimmed text, truncated to {@link QUESTION_TEXT_MAX} chars.
+ * @returns the first question's trimmed text, truncated to {@link BODY_TEXT_MAX} chars.
  */
 export function blockedQuestionText(argumentsString: string): string {
   let parsed: unknown
@@ -149,24 +164,24 @@ export function blockedQuestionText(argumentsString: string): string {
   if (!Array.isArray(questions) || questions.length === 0) return ''
   const question = (questions[0] as { question?: unknown } | undefined)?.question
   if (typeof question !== 'string' || question.trim() === '') return ''
-  const text = question.trim()
-  const chars = [...text]
-  return chars.length > QUESTION_TEXT_MAX ? `${chars.slice(0, QUESTION_TEXT_MAX).join('')}…` : text
+  return truncateText(question.trim(), BODY_TEXT_MAX)
 }
 
 /**
  * Build a blocking-action notification body: a kind label plus the extracted
  * detail, with the session id appended. An empty detail or an unknown kind
- * falls back to the generic "needs attention" text.
+ * falls back to the generic "needs attention" text; an empty title is omitted.
  * @param kind - `'question'` or `'approval'`.
  * @param detail - the extracted question text, or `toolName — reason`.
  * @param sessionId - the root session id to append.
+ * @param title - the latest session title, or '' when none exists yet.
  * @returns the final notification body.
  */
-export function blockedBody(kind: string, detail: string, sessionId: string): string {
+export function blockedBody(kind: string, detail: string, sessionId: string, title = ''): string {
   const label = kind === 'question' ? '需要回答' : kind === 'approval' ? '需要批准' : '需要处理'
-  if (detail === '' || label === '需要处理') return `需要处理 (session: ${sessionId})`
-  return `${label}：${detail} (session: ${sessionId})`
+  const base = detail === '' || label === '需要处理' ? '需要处理' : `${label}：${detail}`
+  const body = title === '' ? base : `${base} — ${title}`
+  return `${body} (session: ${sessionId})`
 }
 
 /**
@@ -181,4 +196,23 @@ export function blockedBody(kind: string, detail: string, sessionId: string): st
 export function approvalDetail(toolName: string, reason: string): string {
   if (toolName === '') return ''
   return reason === '' ? toolName : `${toolName} — ${reason}`
+}
+
+/**
+ * Read the latest session title from a session's event log: scan backwards for
+ * the last `session/title` event and return its normalized, truncated `title`.
+ * Returns an empty string before the first title lands — titles are an async
+ * projection, so early notifications may not have one yet.
+ * @param events - the session's event log, in order.
+ * @returns the latest title truncated to {@link BODY_TEXT_MAX} chars, or ''.
+ */
+export function sessionTitle(events: readonly SessionEvent[]): string {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index] as SessionEvent
+    if (event.type !== 'session/title') continue
+    const title = (event.data as { title?: unknown } | undefined)?.title
+    if (typeof title !== 'string' || title.trim() === '') return ''
+    return truncateText(title.trim(), BODY_TEXT_MAX)
+  }
+  return ''
 }

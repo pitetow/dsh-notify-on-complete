@@ -26,7 +26,7 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => mockChild.makeChild()),
 }))
 
-import { approvalDetail, blockedBody, blockedQuestionText, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from '../src/notify.js'
+import { approvalDetail, blockedBody, blockedQuestionText, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, sessionTitle, spawnNotify } from '../src/notify.js'
 
 const mockedSpawn = vi.mocked(spawn)
 
@@ -51,6 +51,10 @@ describe('resultText', () => {
 describe('buildBody', () => {
   it('appends the session id', () => {
     expect(buildBody('任务已完成', 'abc-123')).toBe('任务已完成 (session: abc-123)')
+  })
+
+  it('inserts the title between the result and the session id', () => {
+    expect(buildBody('任务已完成', 'abc-123', '修复登录bug')).toBe('任务已完成 — 修复登录bug (session: abc-123)')
   })
 })
 
@@ -208,6 +212,36 @@ describe('blockedBody', () => {
 
   it('falls back to the generic text for an unknown kind', () => {
     expect(blockedBody('future-kind', 'x', 'root')).toBe('需要处理 (session: root)')
+  })
+
+  it('inserts the title between the body and the session id', () => {
+    expect(blockedBody('question', '要如何？', 'root', '修复登录bug')).toBe('需要回答：要如何？ — 修复登录bug (session: root)')
+  })
+})
+
+describe('sessionTitle', () => {
+  it('reads the latest session/title event', () => {
+    const events = [
+      { type: 'session/title', data: { title: 'first' } },
+      { type: 'assistant/message', data: {} },
+      { type: 'session/title', data: { title: 'second' } },
+    ]
+    expect(sessionTitle(events)).toBe('second')
+  })
+
+  it('returns an empty string without any title event', () => {
+    expect(sessionTitle([{ type: 'assistant/message', data: {} }])).toBe('')
+    expect(sessionTitle([])).toBe('')
+  })
+
+  it('returns an empty string for a non-string or blank title', () => {
+    expect(sessionTitle([{ type: 'session/title', data: { title: 123 } }])).toBe('')
+    expect(sessionTitle([{ type: 'session/title', data: { title: '   ' } }])).toBe('')
+  })
+
+  it('truncates a long title to 80 chars', () => {
+    const long = '题'.repeat(100)
+    expect(sessionTitle([{ type: 'session/title', data: { title: long } }])).toBe(`${'题'.repeat(80)}…`)
   })
 })
 

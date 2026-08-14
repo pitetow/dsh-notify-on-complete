@@ -57,15 +57,15 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
   }
 
   const notifier = new RunEndNotifier({
-    notify: (kind: string, sessionId: string): void => {
-      spawnNotify(buildCommands(process.platform, title, buildBody(resultText(kind), sessionId)))
+    notify: (kind: string, sessionId: string, sessionTitle: string): void => {
+      spawnNotify(buildCommands(process.platform, title, buildBody(resultText(kind), sessionId, sessionTitle)))
       if (sound) spawnNotify(buildSoundCommands(process.platform))
     },
   })
 
   const blockedNotifier = onBlocked ? new BlockedNotifier({
-    notify: (kind: string, detail: string, sessionId: string): void => {
-      spawnNotify(buildCommands(process.platform, title, blockedBody(kind, detail, sessionId)))
+    notify: (kind: string, detail: string, sessionId: string, sessionTitle: string): void => {
+      spawnNotify(buildCommands(process.platform, title, blockedBody(kind, detail, sessionId, sessionTitle)))
       if (sound) spawnNotify(buildSoundCommands(process.platform))
     },
     onQuestion,

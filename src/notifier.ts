@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Luozy
  * SPDX-License-Identifier: MIT
  */
-import { approvalDetail, blockedQuestionText } from './notify.js'
+import { approvalDetail, blockedQuestionText, sessionTitle } from './notify.js'
 import type { AgentStatusPayload, ApprovalAskedData, Session, SessionEvent, ToolCallData } from './types.js'
 
 /**
@@ -28,7 +28,7 @@ export class RunEndNotifier {
 
   constructor(private readonly deps: {
     /** Emit one notification for a finished root run. */
-    notify: (kind: string, sessionId: string) => unknown
+    notify: (kind: string, sessionId: string, sessionTitle: string) => unknown
   }) {}
 
   /** Feed `session/event`; records the latest reason kind of root-session turn endings. */
@@ -50,7 +50,7 @@ export class RunEndNotifier {
     const kind = this.reasons.get(sessionId)
     if (kind === undefined) return // no turn ended in this activity — nothing to report
     this.reasons.delete(sessionId)
-    this.deps.notify(kind, sessionId)
+    this.deps.notify(kind, sessionId, sessionTitle(agent?.session?.events ?? []))
   }
 }
 
@@ -66,7 +66,7 @@ export class RunEndNotifier {
 export class BlockedNotifier {
   constructor(private readonly deps: {
     /** Emit one notification for a blocking action. */
-    notify: (kind: string, detail: string, sessionId: string) => unknown
+    notify: (kind: string, detail: string, sessionId: string, sessionTitle: string) => unknown
     onQuestion: boolean
     onApproval: boolean
   }) {}
@@ -78,12 +78,12 @@ export class BlockedNotifier {
       const data = event.data as ToolCallData | undefined
       if (data?.name !== 'ask_user_question') return
       const detail = typeof data.arguments === 'string' ? blockedQuestionText(data.arguments) : ''
-      this.deps.notify('question', detail, session.header.id)
+      this.deps.notify('question', detail, session.header.id, sessionTitle(session.events ?? []))
     } else if (event.type === 'approval/asked' && this.deps.onApproval) {
       const data = event.data as ApprovalAskedData | undefined
       const toolName = typeof data?.toolName === 'string' ? data.toolName : ''
       const reason = typeof data?.reason === 'string' ? data.reason : ''
-      this.deps.notify('approval', approvalDetail(toolName, reason), session.header.id)
+      this.deps.notify('approval', approvalDetail(toolName, reason), session.header.id, sessionTitle(session.events ?? []))
     }
   }
 }
