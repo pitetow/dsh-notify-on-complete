@@ -1,12 +1,13 @@
 # dsh-notify-on-complete
 
-DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面通知，提示用户工作已完成。正文按结果区分（成功 / 失败 / 中止 / 达到 token 上限）。
+DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面通知，提示用户工作已完成；会话进行中模型提问或等待审批时也会即时通知提醒你回来处理。正文按结果区分（成功 / 失败 / 中止 / 达到 token 上限）。
 
 > 作者：[Luozy](https://github.com/pitetow) · 协议：[MIT](LICENSE)
 
 - 零运行时依赖：不依赖 dsh 内部包，也不依赖 `ctx.shell` 服务，通知用 `child_process.spawn` 以 detached 子进程发出，**不阻塞、也不被 harness 退出流程影响**。
 - 跨平台：按 `process.platform` 自动选择通知命令（macOS `osascript` / Linux `notify-send`→`kdialog` / Windows PowerShell）。不支持的平台加载时跳过并打警告，不会在每个事件里抛错。
 - 通知带系统提示音：macOS 用系统默认提示音（`sound name "Glass"`）、Windows 用 .NET SystemSounds、Linux 用 `canberra-gtk-play`（缺失时回退 `paplay`）；可用 `sound: false` 关闭。
+- 会话中阻塞即时通知：模型调用 `ask_user_question` 提问、或沙箱提权/工具权限等待审批时立即弹通知提醒你回来（正文含问题文本 / 工具名与原因），可用 `onBlocked` / `onQuestion` / `onApproval` 精细控制。
 - 只通知顶层运行：子代理（subagent）会话被过滤（`header.origin === 'subagent'`），一次 CLI 运行只弹一条通知。
 
 ## 工作原理
@@ -134,6 +135,9 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 | `enabled` | boolean | `true` | 设为 `false` 时插件不注册任何监听，完全关闭 |
 | `title` | string | `DeepSeek Harness` | 系统通知的标题 |
 | `sound` | boolean | `true` | 通知时同时播放系统提示音；设为 `false` 只弹通知不出声 |
+| `onBlocked` | boolean | `true` | 阻塞通知总开关；设为 `false` 完全关闭提问+审批通知 |
+| `onQuestion` | boolean | `true` | 提问类（`ask_user_question`）通知开关；仅在 `onBlocked: true` 时生效 |
+| `onApproval` | boolean | `true` | 审批/权限类通知开关；仅在 `onBlocked: true` 时生效 |
 
 配置校验在加载时执行（fail loud）：类型错误会在启动时报错，不会静默忽略。
 
@@ -169,6 +173,9 @@ CLI 一次运行可能包含多个子代理会话，每个都有自己的 `turn/
 
 **Q：`dsh plugin add` 报 peer 依赖错误？**
 插件 peer 依赖 `@deepseek-ai/cordis@^4.0.1`，需要能从 npm 解析。若你的网络环境访问不了 npm registry，改用 `--offline` 或在 profile 里预先安装 cordis。
+
+**Q：headless / approval 策略为 never 时也会弹「需要批准」吗？**
+可能。`approval/asked` 在策略为 never 或没有回答者（headless/CI）时同样会落日志，此时实际是立即拒绝而非真正等用户——纯插件无法从 session 事件分辨这一层。Web GUI 回答者恒在、策略默认 ask，信号可靠；headless 场景可用 `onApproval: false` 或 `onBlocked: false` 关闭。
 
 ## 开发
 
