@@ -32,8 +32,8 @@ BRANCH="main"
 PKG="dsh-notify-on-complete"
 PROFILE="${DSH_PROFILE:-web}"
 PLUGIN_DIR="${DSH_PLUGIN_DIR:-${HOME:-${USERPROFILE:-}}/.dsh/plugins/dsh-notify-on-complete}"
-PROFILE_DIR="${HOME:-${USERPROFILE:-}}/.dsh/profiles/$PROFILE"
-PATCH_YML="$PROFILE_DIR/cordis.patch.yml"
+PROFILE_DIR="${HOME:-${USERPROFILE:-}}/.dsh/profiles/${PROFILE}"
+PATCH_YML="${PROFILE_DIR}/cordis.patch.yml"
 
 say()  { printf '\033[32m[install]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[warn]\033[0m %s\n' "$*" >&2; }
@@ -42,13 +42,13 @@ die()  { printf '\033[31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
 FORCE=false
 YES=false
 while [ $# -gt 0 ]; do
-  case "$1" in
+  case "${1}" in
     --force) FORCE=true ;;
     --yes|-y) YES=true ;;
     -h|--help) echo "用法：bash scripts/install.sh [--profile <名>] [--force] [--yes]"; exit 0 ;;
-    --profile) shift; [ $# -ge 1 ] || die "--profile 需要跟一个 profile 名（或用环境变量 DSH_PROFILE）"; PROFILE="$1" ;;
+    --profile) shift; [ $# -ge 1 ] || die "--profile 需要跟一个 profile 名（或用环境变量 DSH_PROFILE）"; PROFILE="${1}" ;;
     --profile=*) PROFILE="${1#--profile=}" ;;
-    *) die "未知参数: $1（用 -h 查看帮助）" ;;
+    *) die "未知参数: ${1}（用 -h 查看帮助）" ;;
   esac
   shift
 done
@@ -57,46 +57,46 @@ done
 command -v node >/dev/null 2>&1 || die "未找到 node（需要 Node.js ^22），请先安装并加入 PATH。"
 command -v pnpm >/dev/null 2>&1 || die "未找到 pnpm，请先安装：npm i -g pnpm"
 command -v dsh  >/dev/null 2>&1 || die "未找到 dsh，请先安装 DeepSeek Harness CLI。"
-[ -d "$PROFILE_DIR" ] || die "找不到 profile 目录：$PROFILE_DIR（请先运行过一次 dsh）"
+[ -d "${PROFILE_DIR}" ] || die "找不到 profile 目录：${PROFILE_DIR}（请先运行过一次 dsh）"
 
 # 步骤 1：获取源码
-if [ -d "$PLUGIN_DIR" ] && [ "$FORCE" = false ]; then
-  say "源码已存在：$PLUGIN_DIR（不覆盖，仅重新校验依赖与挂载）"
+if [ -d "${PLUGIN_DIR}" ] && [ "${FORCE}" = false ]; then
+  say "源码已存在：${PLUGIN_DIR}（不覆盖，仅重新校验依赖与挂载）"
   say "需要更新源码时加 --force 重新下载（覆盖前会询问确认，加 --yes 跳过）"
-elif [ -d "$PLUGIN_DIR" ] && [ "$YES" = false ]; then
+elif [ -d "${PLUGIN_DIR}" ] && [ "${YES}" = false ]; then
   if [ ! -t 0 ]; then
     die "检测到非交互终端（如 curl | bash），无法询问确认。请加 --yes 跳过确认：bash -s -- --force --yes"
   fi
-  warn "即将删除并重新下载：$PLUGIN_DIR"
+  warn "即将删除并重新下载：${PLUGIN_DIR}"
   warn "注意：该目录内的任何本地改动（如调试代码）都会丢失！"
   printf '[install] 确认覆盖更新？[y/N] '
   read -r CONFIRM
-  case "$CONFIRM" in
+  case "${CONFIRM}" in
     y|Y|yes|YES) say "确认覆盖，继续..." ;;
     *) die "已取消，保留现有源码，未做任何修改。" ;;
   esac
 fi
 
 # 获取源码（首次安装，或已确认覆盖）
-if [ ! -d "$PLUGIN_DIR" ]; then
-  say "下载源码 https://github.com/$REPO (branch: $BRANCH) ..."
+if [ ! -d "${PLUGIN_DIR}" ]; then
+  say "下载源码 https://github.com/${REPO} (branch: ${BRANCH}) ..."
   TMP="$(mktemp -d)"
-  curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/heads/$BRANCH" -o "$TMP/src.tgz" \
+  curl -fsSL "https://codeload.github.com/${REPO}/tar.gz/refs/heads/${BRANCH}" -o "${TMP}/src.tgz" \
     || die "下载失败（网络问题？仓库地址变更？）"
-  rm -rf "$PLUGIN_DIR"
-  mkdir -p "$PLUGIN_DIR"
-  tar -xzf "$TMP/src.tgz" -C "$TMP"
-  mv "$TMP/$PKG-$BRANCH/"* "$PLUGIN_DIR/"
-  rm -rf "$TMP"
+  rm -rf "${PLUGIN_DIR}"
+  mkdir -p "${PLUGIN_DIR}"
+  tar -xzf "${TMP}/src.tgz" -C "${TMP}"
+  mv "${TMP}/${PKG}-${BRANCH}/"* "${PLUGIN_DIR}/"
+  rm -rf "${TMP}"
 fi
 
 # 步骤 2：安装依赖并构建
-say "构建 $PKG ..."
-(cd "$PLUGIN_DIR" && pnpm install && pnpm run build)
+say "构建 ${PKG} ..."
+(cd "${PLUGIN_DIR}" && pnpm install && pnpm run build)
 
 # 步骤 3：link 安装（CLI 读到 dsh.bundle.patch 自动注册 bundle）
-say "dsh plugin --profile $PROFILE add link:$PLUGIN_DIR ..."
-dsh plugin --profile "$PROFILE" add "link:$PLUGIN_DIR"
+say "dsh plugin --profile ${PROFILE} add link:${PLUGIN_DIR} ..."
+dsh plugin --profile "${PROFILE}" add "link:${PLUGIN_DIR}"
 
 # 步骤 4：校验 bundle 已注册（挂载生效的判据）
 if ! node -e '
@@ -104,12 +104,12 @@ if ! node -e '
   const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
   const bundles = p.dsh?.profile?.bundles ?? [];
   process.exit(bundles.includes(process.argv[2]) ? 0 : 1);
-' "$PROFILE_DIR/package.json" "$PKG"; then
-  warn "$PKG 未出现在 dsh.profile.bundles 中——自动挂载未注册。"
-  warn "请检查 $PLUGIN_DIR/package.json 的 dsh.bundle 声明是否完整，或重跑本脚本。"
+' "${PROFILE_DIR}/package.json" "${PKG}"; then
+  warn "${PKG} 未出现在 dsh.profile.bundles 中——自动挂载未注册。"
+  warn "请检查 ${PLUGIN_DIR}/package.json 的 dsh.bundle 声明是否完整，或重跑本脚本。"
   exit 1
 fi
-say "bundle 已注册：dsh.profile.bundles 包含 $PKG（下次启动自动挂载）"
+say "bundle 已注册：dsh.profile.bundles 包含 ${PKG}（下次启动自动挂载）"
 
 # 步骤 5：幂等移除旧手动挂载行（避免双挂载；移除后若文件为空补 []）
 MOUNT_RESULT="$(node -e '
@@ -148,9 +148,9 @@ if (!removed) {
   fs.writeFileSync(p, t + "\n");
   console.log("removed");
 }
-' "$PATCH_YML")"
-[ "$MOUNT_RESULT" = "removed" ] \
-  && say "已从 $PATCH_YML 移除旧的 $PKG 手动挂载行（bundle 通道接管挂载）" \
+' "${PATCH_YML}")"
+[ "${MOUNT_RESULT}" = "removed" ] \
+  && say "已从 ${PATCH_YML} 移除旧的 ${PKG} 手动挂载行（bundle 通道接管挂载）" \
   || say "无旧手动挂载行，跳过"
 
-say "安装完成：$PKG (profile: $PROFILE)。重启 dsh 后生效——CLI 一次性运行下次自然生效；web 需重启 dsh web 进程。"
+say "安装完成：${PKG} (profile: ${PROFILE})。重启 dsh 后生效——CLI 一次性运行下次自然生效；web 需重启 dsh web 进程。"
