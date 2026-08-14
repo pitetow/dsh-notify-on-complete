@@ -11,7 +11,7 @@
 
 ## 项目形态
 
-- 独立项目，位于 `/Users/luozy/mainProject/dsh-notify-on-complete/`，与 deepseek-harness 仓库平级，不进入仓库。
+- 独立项目，位于 `./`，与 deepseek-harness 仓库平级，不进入仓库。
 - TypeScript + ESM（`"type": "module"`），Node ^22，构建产物为 ESM JS，供 dsh CLI 的 Loader 按包名 `dsh-notify-on-complete` 解析。
 - **零运行时依赖**：peerDependencies 仅 `@deepseek-ai/cordis`（Loader 兼容与类型）。不依赖 `ctx.shell` 服务，直接用 Node `child_process.spawn(cmd, args, { detached: true, stdio: 'ignore' })` + `unref()` 发通知，fire-and-forget，teardown 阶段不受影响。
 - 事件载荷用结构类型（`event.type === 'turn/end'`），不依赖 dsh 内部包，避免耦合未发布的内部包。

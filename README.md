@@ -2,7 +2,7 @@
 
 DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面通知，提示用户工作已完成。正文按结果区分（成功 / 失败 / 中止 / 达到 token 上限）。
 
-> 作者：[Luozy](https://github.com/Luozy) · 协议：[MIT](LICENSE)
+> 作者：[Luozy](https://github.com/pitetow) · 协议：[MIT](LICENSE)
 
 - 零运行时依赖：不依赖 dsh 内部包，也不依赖 `ctx.shell` 服务，通知用 `child_process.spawn` 以 detached 子进程发出，**不阻塞、也不被 harness 退出流程影响**。
 - 跨平台：按 `process.platform` 自动选择通知命令（macOS `osascript` / Linux `notify-send`→`kdialog` / Windows PowerShell）。不支持的平台加载时跳过并打警告，不会在每个事件里抛错。

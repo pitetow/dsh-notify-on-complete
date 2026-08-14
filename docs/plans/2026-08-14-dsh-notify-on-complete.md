@@ -17,10 +17,10 @@
 ### Task 1: Scaffold the standalone project
 
 **Files:**
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/package.json`
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/tsconfig.json`
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/vitest.config.ts`
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/.gitignore`
+- Create: `./package.json`
+- Create: `./tsconfig.json`
+- Create: `./vitest.config.ts`
+- Create: `./.gitignore`
 
 - [ ] **Step 1: Write package.json**
 
@@ -102,13 +102,13 @@ coverage/
 
 - [ ] **Step 5: Install dependencies**
 
-Run: `cd /Users/luozy/mainProject/dsh-notify-on-complete && pnpm install`
+Run: `cd . && pnpm install`
 Expected: lockfile created, `@deepseek-ai/cordis@4.0.1` + vitest + typescript resolved.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/luozy/mainProject/dsh-notify-on-complete
+cd .
 git add package.json tsconfig.json vitest.config.ts .gitignore pnpm-lock.yaml
 git commit -m "chore: scaffold standalone dsh-notify-on-complete project"
 ```
@@ -118,7 +118,7 @@ git commit -m "chore: scaffold standalone dsh-notify-on-complete project"
 ### Task 2: Structural event types
 
 **Files:**
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/src/types.ts`
+- Create: `./src/types.ts`
 
 - [ ] **Step 1: Write src/types.ts**
 
@@ -165,7 +165,7 @@ export interface NotifyConfig {
 
 - [ ] **Step 2: Typecheck**
 
-Run: `cd /Users/luozy/mainProject/dsh-notify-on-complete && pnpm run typecheck`
+Run: `cd . && pnpm run typecheck`
 Expected: PASS (empty output, exit 0).
 
 - [ ] **Step 3: Commit**
@@ -180,7 +180,7 @@ git commit -m "feat: add structural session event types"
 ### Task 3: Notification mapping, command building, and spawn
 
 **Files:**
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/src/notify.ts`
+- Create: `./src/notify.ts`
 
 - [ ] **Step 1: Write src/notify.ts**
 
@@ -288,7 +288,7 @@ git commit -m "feat: add result mapping, platform commands, and fire-and-forget 
 ### Task 4: Unit tests for notify.ts
 
 **Files:**
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/tests/notify.spec.ts`
+- Create: `./tests/notify.spec.ts`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -435,7 +435,7 @@ git commit -m "test: cover result mapping, command building, and spawn fallback"
 ### Task 5: Plugin entry
 
 **Files:**
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/src/index.ts`
+- Create: `./src/index.ts`
 
 - [ ] **Step 1: Check whether the harness session types are published**
 
@@ -515,8 +515,8 @@ git commit -m "feat: add plugin entry listening on session/event turn/end"
 ### Task 6: README and example config
 
 **Files:**
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/README.md`
-- Create: `/Users/luozy/mainProject/dsh-notify-on-complete/example.cordis.yml`
+- Create: `./README.md`
+- Create: `./example.cordis.yml`
 
 - [ ] **Step 1: Write README.md**
 
