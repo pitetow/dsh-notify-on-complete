@@ -33,19 +33,32 @@ DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面�
 
 ---
 
-## 安装（npm 一键）
+## 安装（一键脚本，GitHub 源码分发，无需 npm）
 
-**前置**：已装好 DSH（`dsh web` 能正常运行），Node.js ^22。
+**前置**：已装好 DSH（`dsh web` 能正常运行），Node.js ^22 + pnpm。
+
+**macOS / Linux / Windows（Git Bash 或 WSL）**：
 
 ```bash
-npx -y --package @deepseek-ai/dsh dsh plugin --profile web add dsh-notify-on-complete
+curl -fsSL https://raw.githubusercontent.com/pitetow/dsh-notify-on-complete/main/scripts/install.sh | bash
 ```
 
-一条命令完成安装 + 挂载：包内声明了 `dsh.bundle.patch`（`cordis.patch.yml`），CLI 会自动把插件注册进 profile 的 bundle 栈，下次启动即生效——**不需要手动编辑任何配置文件**。
+其他 profile（默认 `web`）：
 
-> `--profile web` 里的 `web` 换成你实际使用的 profile 名（`headless` 等）；`dsh --profile <名字>` 启动哪个，就装进哪个。
+```bash
+curl -fsSL https://raw.githubusercontent.com/pitetow/dsh-notify-on-complete/main/scripts/install.sh | bash -s -- --profile headless
+```
 
-验证已加载（可选）：
+脚本自动完成 4 件事（全部幂等，可安全重复执行）：
+
+1. 下载源码到 `~/.dsh/plugins/dsh-notify-on-complete/`（已存在则跳过，`--force` 重新下载更新）；
+2. `pnpm install && pnpm build` 构建产物；
+3. `dsh plugin --profile <名> add link:<目录>`：CLI 识别包内 `dsh.bundle.patch` 声明（`cordis.patch.yml`），**自动注册进 profile 的 bundle 栈**，下次启动自动挂载——不需要手动编辑任何配置文件；
+4. 幂等移除旧版残留的手动挂载行，避免双挂载（一次运行弹两条通知）。
+
+`curl | bash` 会执行远程代码——脚本随仓库开源（`scripts/install.sh`），可先下载审阅。
+
+### 验证
 
 ```bash
 dsh --profile web --dump-config | grep -n notify-on-complete
@@ -61,21 +74,22 @@ dsh --profile web --dump-config | grep -n notify-on-complete
 ### 更新
 
 ```bash
-dsh plugin --profile web add dsh-notify-on-complete
+curl -fsSL https://raw.githubusercontent.com/pitetow/dsh-notify-on-complete/main/scripts/install.sh | bash -s -- --force
 ```
 
-或把 `~/.dsh/profiles/web/package.json` 里的版本号改高后 `pnpm install`。
+或手动：`cd ~/.dsh/plugins/dsh-notify-on-complete && git pull && pnpm install && pnpm run build` 后重跑 `dsh plugin --profile web add link:.`。
 
 ### 卸载
 
 ```bash
 dsh plugin --profile web remove dsh-notify-on-complete
+rm -rf ~/.dsh/plugins/dsh-notify-on-complete
 ```
 
-然后重启 dsh 进程。若之前手动改过 `cordis.patch.yml`，顺手删掉旧条目。
+然后重启 dsh 进程。
 
 <details>
-<summary><b>手动安装（从源码 / 本地开发调试，与 npm 一键二选一）</b></summary>
+<summary><b>手动安装（从源码 / 本地开发调试，与一键脚本二选一）</b></summary>
 
 把依赖指向本地源码（`link:` 是符号链接，改代码后重建即生效，适合调试）：
 
@@ -103,7 +117,7 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
     title: DeepSeek Harness    # 通知标题，不写也行
 ```
 
-> 若之前用 npm 一键装过，再手动挂载会造成双挂载（一次运行弹两条通知）——切换通道前先 `dsh plugin --profile web remove dsh-notify-on-complete`。
+> 若之前用一键脚本装过，再手动挂载会造成双挂载（一次运行弹两条通知）——切换通道前先 `dsh plugin --profile web remove dsh-notify-on-complete`。
 
 </details>
 
@@ -130,11 +144,8 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 
 ## 常见问题
 
-**Q：报 `minimum release age` / 版本不足 24h？**
-刚发布的版本 pnpm 会拦截 24 小时内的新版本。等 24h 再装，或直接重跑一次安装命令（pnpm 会提示并放行）。
-
 **Q：一次运行弹两条通知？**
-双挂载：profile 的 `cordis.patch.yml` 里还留着旧的手动挂载行。删掉那段 `- id: notify-on-complete` 条目，只保留 bundle 自动挂载即可。
+双挂载：profile 的 `cordis.patch.yml` 里还留着旧的手动挂载行。删掉那段 `- id: notify-on-complete` 条目（一键脚本会自动清理），只保留 bundle 自动挂载即可。注意 `cordis.patch.yml` 必须是顶层 YAML 数组——全部删光后请写 `[]`。
 
 **Q：装了但通知不弹？**
 1. 先确认加载成功：`dsh --profile web --dump-config | grep notify-on-complete`。
@@ -170,5 +181,7 @@ src/index.ts     插件入口：name / Config 校验 / 平台门禁 / 事件接�
 src/notifier.ts  运行结束状态机：记录最终 turn/end 结果，agent idle 时发一次
 src/notify.ts    结果映射、平台命令构建、detached spawn（含 Linux 回退）
 src/types.ts     结构事件类型（零依赖，不依赖 dsh 内部包）
+cordis.patch.yml bundle 自动挂载声明（dsh.bundle.patch）
+scripts/install.sh  一键安装脚本（GitHub 源码分发）
 tests/           vitest 单元测试（结果映射 / 平台命令 / 状态机 / 插件入口）
 ```
