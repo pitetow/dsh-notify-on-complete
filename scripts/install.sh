@@ -117,7 +117,9 @@ if (!removed) {
   console.log("none");
 } else {
   let t = out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-  if (t === "" || !/^[-[]/.test(t)) t += (t ? "\n\n" : "") + "[]";
+  // cordis.patch.yml must stay a top-level YAML array; if no entries remain
+  // (only comments left), write an explicit empty array.
+  if (!/^[-[]/m.test(t)) t += (t ? "\n\n" : "") + "[]";
   fs.writeFileSync(p, t + "\n");
   console.log("removed");
 }
