@@ -1,0 +1,6 @@
+# 可直接粘贴到 dsh CLI 的 cordis.yml 的 plugins 列表
+- id: notify-on-complete
+  name: dsh-notify-on-complete
+  config:
+    enabled: true
+    title: DeepSeek Harness
