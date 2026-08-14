@@ -150,20 +150,35 @@ export function blockedQuestionText(argumentsString: string): string {
   const question = (questions[0] as { question?: unknown } | undefined)?.question
   if (typeof question !== 'string' || question.trim() === '') return ''
   const text = question.trim()
-  return text.length > QUESTION_TEXT_MAX ? `${text.slice(0, QUESTION_TEXT_MAX)}…` : text
+  const chars = [...text]
+  return chars.length > QUESTION_TEXT_MAX ? `${chars.slice(0, QUESTION_TEXT_MAX).join('')}…` : text
 }
 
 /**
  * Build a blocking-action notification body: a kind label plus the extracted
- * detail, with the session id appended. An empty detail falls back to the
- * generic "needs attention" text.
+ * detail, with the session id appended. An empty detail or an unknown kind
+ * falls back to the generic "needs attention" text.
  * @param kind - `'question'` or `'approval'`.
  * @param detail - the extracted question text, or `toolName — reason`.
  * @param sessionId - the root session id to append.
  * @returns the final notification body.
  */
 export function blockedBody(kind: string, detail: string, sessionId: string): string {
-  if (detail === '') return `需要处理 (session: ${sessionId})`
   const label = kind === 'question' ? '需要回答' : kind === 'approval' ? '需要批准' : '需要处理'
+  if (detail === '' || label === '需要处理') return `需要处理 (session: ${sessionId})`
   return `${label}：${detail} (session: ${sessionId})`
+}
+
+/**
+ * Compose the approval detail from an `approval/asked` event's tool name and
+ * optional reason: the tool name alone, `toolName — reason`, or `''` when the
+ * tool name is absent — the empty string lets {@link blockedBody} fall back to
+ * its generic text.
+ * @param toolName - the asked tool's name (already narrowed to string or '').
+ * @param reason - the optional human-readable reason (string or '').
+ * @returns the composed detail.
+ */
+export function approvalDetail(toolName: string, reason: string): string {
+  if (toolName === '') return ''
+  return reason === '' ? toolName : `${toolName} — ${reason}`
 }

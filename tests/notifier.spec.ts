@@ -181,4 +181,22 @@ describe('BlockedNotifier', () => {
     notifier.onSessionEvent(rootSession(), toolCall('ask_user_question', 'not json'))
     expect(notify).toHaveBeenCalledWith('question', '', 'root')
   })
+
+  it('reports an empty detail when arguments is not a string', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), { type: 'tool/call', data: { name: 'ask_user_question', arguments: 123 } })
+    expect(notify).toHaveBeenCalledWith('question', '', 'root')
+  })
+
+  it('reports an empty detail when approval/asked has no tool name', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), { type: 'approval/asked', data: { id: 'a1' } })
+    expect(notify).toHaveBeenCalledWith('approval', '', 'root')
+  })
+
+  it('ignores a tool/call event without data', () => {
+    const { notifier, notify } = makeBlockedNotifier()
+    notifier.onSessionEvent(rootSession(), { type: 'tool/call', data: undefined })
+    expect(notify).not.toHaveBeenCalled()
+  })
 })

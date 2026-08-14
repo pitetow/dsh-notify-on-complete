@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Luozy
  * SPDX-License-Identifier: MIT
  */
-import { blockedQuestionText } from './notify.js'
+import { approvalDetail, blockedQuestionText } from './notify.js'
 import type { AgentStatusPayload, ApprovalAskedData, Session, SessionEvent, ToolCallData } from './types.js'
 
 /**
@@ -83,8 +83,7 @@ export class BlockedNotifier {
       const data = event.data as ApprovalAskedData | undefined
       const toolName = typeof data?.toolName === 'string' ? data.toolName : ''
       const reason = typeof data?.reason === 'string' ? data.reason : ''
-      const detail = toolName === '' ? '' : reason === '' ? toolName : `${toolName} — ${reason}`
-      this.deps.notify('approval', detail, session.header.id)
+      this.deps.notify('approval', approvalDetail(toolName, reason), session.header.id)
     }
   }
 }

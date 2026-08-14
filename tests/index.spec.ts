@@ -234,6 +234,24 @@ describe('apply', () => {
     ctx.emit('session/event', ...rootToolCall('ask_user_question', '{"questions":[{"question":"x"}]}'))
     ctx.emit('session/event', ...rootApprovalAsked('bash'))
     expect(mockedSpawn).not.toHaveBeenCalled()
+    // The master switch scopes only to blocked notifications: run-ended still fires.
+    ctx.emit('session/event', ...rootTurnEnd('completed'))
+    ctx.emit('agent/status', ...idleRoot())
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('任务已完成 (session: root)')
+  })
+
+  it('fires a blocked notification and a run-ended notification without interfering', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx)
+    ctx.emit('session/event', ...rootToolCall('ask_user_question', '{"questions":[{"question":"要如何？"}]}'))
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    ctx.emit('session/event', ...rootTurnEnd('completed'))
+    ctx.emit('agent/status', ...idleRoot())
+    expect(mockedSpawn).toHaveBeenCalledTimes(2)
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('需要回答：要如何？')
+    expect(mockedSpawn.mock.calls[1]![1]!.join(' ')).toContain('任务已完成')
   })
 
   it('disables only questions when onQuestion is false', () => {

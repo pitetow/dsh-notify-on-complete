@@ -26,7 +26,7 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => mockChild.makeChild()),
 }))
 
-import { blockedBody, blockedQuestionText, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from '../src/notify.js'
+import { approvalDetail, blockedBody, blockedQuestionText, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from '../src/notify.js'
 
 const mockedSpawn = vi.mocked(spawn)
 
@@ -167,6 +167,20 @@ describe('blockedQuestionText', () => {
     expect(blockedQuestionText(`{"questions":[{"question":"${long}"}]}`)).toBe(`${'问'.repeat(80)}…`)
   })
 
+  it('does not truncate a question of exactly 80 chars', () => {
+    const exact = '问'.repeat(80)
+    expect(blockedQuestionText(`{"questions":[{"question":"${exact}"}]}`)).toBe(exact)
+  })
+
+  it('trims leading and trailing whitespace', () => {
+    expect(blockedQuestionText('{"questions":[{"question":"  要如何？  "}]}')).toBe('要如何？')
+  })
+
+  it('does not split a surrogate pair at the truncation boundary', () => {
+    const text = 'a'.repeat(79) + '😀'
+    expect(blockedQuestionText(`{"questions":[{"question":"${text}"}]}`)).toBe(text)
+  })
+
   it('returns an empty string on invalid JSON', () => {
     expect(blockedQuestionText('not json')).toBe('')
   })
@@ -190,5 +204,23 @@ describe('blockedBody', () => {
 
   it('falls back to the generic text when detail is empty', () => {
     expect(blockedBody('question', '', 'root')).toBe('需要处理 (session: root)')
+  })
+
+  it('falls back to the generic text for an unknown kind', () => {
+    expect(blockedBody('future-kind', 'x', 'root')).toBe('需要处理 (session: root)')
+  })
+})
+
+describe('approvalDetail', () => {
+  it('joins the tool name and reason with an em dash', () => {
+    expect(approvalDetail('bash', 'escalate')).toBe('bash — escalate')
+  })
+
+  it('returns the tool name alone when the reason is empty', () => {
+    expect(approvalDetail('bash', '')).toBe('bash')
+  })
+
+  it('returns an empty string when the tool name is empty', () => {
+    expect(approvalDetail('', 'escalate')).toBe('')
   })
 })
