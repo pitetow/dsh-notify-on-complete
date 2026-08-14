@@ -3,12 +3,17 @@
 DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面通知，提示用户工作已完成。正文按结果区分（成功 / 失败 / 中止 / 达到 token 上限）。
 
 - 零运行时依赖：不依赖 dsh 内部包，也不依赖 `ctx.shell` 服务，通知用 `child_process.spawn` 以 detached 子进程发出，**不阻塞、也不被 harness 退出流程影响**。
-- 跨平台：按 `process.platform` 自动选择通知命令（macOS `osascript` / Linux `notify-send` / Windows PowerShell）。
-- 只通知顶层运行：子代理（subagent）会话被过滤，一次 CLI 运行只弹一条通知。
+- 跨平台：按 `process.platform` 自动选择通知命令（macOS `osascript` / Linux `notify-send`→`kdialog` / Windows PowerShell）。不支持的平台加载时跳过并打警告，不会在每个事件里抛错。
+- 只通知顶层运行：子代理（subagent）会话被过滤（`header.origin === 'subagent'`），一次 CLI 运行只弹一条通知。
 
 ## 工作原理
 
-插件监听全局 `session/event` 事件流，过滤 `turn/end` 事件，且只看**根会话**（`session.header.parentSession === undefined`，子代理会话带 parentSession，被排除）。然后按 `reason.kind` 映射正文，通过系统命令发送通知：
+插件监听两个事件，协同判定"一次运行结束"：
+
+1. **`session/event` → `turn/end`**：记录根会话（`origin !== 'subagent'`）最近一次轮次结束的 `reason.kind`。一次运行可能跨多个轮次（goal 多轮、follow-up、steering），每一轮都有自己的 `turn/end`，插件只记住**最后一次**的结果。
+2. **`agent/status` → `'idle'`**：这是 harness 自己定义的"运行结束"信号（web 界面的 running 指示器、`agent.whenIdle()` 都基于它）。根 agent 回到 idle 表示整段活动（含所有轮次）收敛完成，此时把记下的最终结果发出去，并清除记录。
+
+所以**每条通知对应一次完整的运行**，而不是每一轮：多轮 goal run 只在整场跑完时弹一条，且正文是最终结果；中途的"任务已完成"不会提前弹出。通知正文格式：`结果文本 (session: 会话ID)`，例如 `任务已完成 (session: 3f9a…)`。通知命令以 `detached: true` + `unref()` 发出，harness 正常退出或崩溃都不会影响通知送达。
 
 | `reason.kind` | 通知正文 |
 |---|---|
@@ -17,8 +22,6 @@ DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面�
 | `aborted` | 任务已中止 |
 | `max-tokens` | 任务达到 token 上限 |
 | 其他（未知） | 任务结束 |
-
-通知正文格式：`结果文本 (session: 会话ID)`，例如 `任务已完成 (session: 3f9a…)`。通知命令以 `detached: true` + `unref()` 发出，harness 正常退出或崩溃都不会影响通知送达。
 
 ## 环境要求
 
@@ -129,10 +132,13 @@ dsh plugin --profile web remove dsh-notify-on-complete
 4. 通知是 fire-and-forget 的，失败不会报错——可以在终端手动执行对应平台的命令验证系统侧可用。
 
 **Q：为什么只在根会话触发，子代理不通知？**
-CLI 一次运行可能包含多个子代理会话，每个都有自己的 `turn/end`。插件只看根会话（无 `parentSession` 头），保证一次运行只弹一条通知，避免刷屏。
+CLI 一次运行可能包含多个子代理会话，每个都有自己的 `turn/end` 和 `agent/status`。插件用 `session.header.origin === 'subagent'` 过滤子代理（harness 自己的惯用口径），保证只对顶层运行通知。
+
+**Q：一次运行会弹几条通知？**
+一条。通知在根 agent 回到 `idle`（整段活动收敛、所有轮次结束）时才发出，多轮 goal run 也不会刷屏；中途轮次结束不会提前弹"任务已完成"。
 
 **Q：Web GUI 里任务跑完会通知吗？**
-会。Web GUI 中每次任务（一次运行）结束对应根会话的 `turn/end`，与 CLI 行为一致。
+会。Web GUI 中每次任务（一次运行）结束对应根 agent 的 `idle` 状态，与 CLI 行为一致；多轮 goal run 整场跑完才弹一条。
 
 **Q：`dsh plugin add` 报 peer 依赖错误？**
 插件 peer 依赖 `@deepseek-ai/cordis@^4.0.1`，需要能从 npm 解析。若你的网络环境访问不了 npm registry，改用 `--offline` 或在 profile 里预先安装 cordis。
@@ -141,16 +147,17 @@ CLI 一次运行可能包含多个子代理会话，每个都有自己的 `turn/
 
 ```bash
 pnpm install
-pnpm run test        # vitest 单元测试（结果映射 / 平台命令 / spawn 回退）
+pnpm run test        # vitest 单元测试（结果映射 / 平台命令 / 运行结束状态机 / 插件入口）
 pnpm run typecheck   # tsc --noEmit
-pnpm run build       # tsc 产物到 lib/
+pnpm run build       # tsc 产物到 lib/（prepare 钩子在 install 时自动执行）
 ```
 
 源码结构：
 
 ```
-src/index.ts    插件入口：name / Config 校验 / session/event 监听
-src/notify.ts   结果映射、平台命令构建、detached spawn（含 Linux 回退）
-src/types.ts    结构事件类型（零依赖，不依赖 dsh 内部包）
-tests/          单元测试
+src/index.ts     插件入口：name / Config 校验 / 平台门禁 / 事件接线
+src/notifier.ts  运行结束状态机：记录最终 turn/end 结果，agent idle 时发一次
+src/notify.ts    结果映射、平台命令构建、detached spawn（含 Linux 回退）
+src/types.ts     结构事件类型（零依赖，不依赖 dsh 内部包）
+tests/           vitest 单元测试（结果映射 / 平台命令 / 状态机 / 插件入口）
 ```

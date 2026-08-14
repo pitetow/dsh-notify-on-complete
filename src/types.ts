@@ -1,5 +1,6 @@
 /**
- * Structural event types for the harness `session/event` feed.
+ * Structural event types for the harness `session/event` feed and the
+ * `agent/status` live lifecycle bus.
  * Deliberately minimal: only the fields this plugin reads, so the plugin does
  * not need the harness's internal packages at runtime.
  * @module dsh-notify-on-complete/types
@@ -24,11 +25,25 @@ export interface SessionEvent {
 export interface SessionHeader {
   id: string
   parentSession?: string
+  /** Coarse product classification; subagent sessions carry `'subagent'`. */
+  origin?: 'subagent'
 }
 
 /** The session object delivered to `session/event` listeners. */
 export interface Session {
   header: SessionHeader
+}
+
+/**
+ * The `agent/status` live lifecycle payload (not a logged session event).
+ * `'idle'` means the whole-agent activity reached quiescence — the run ended.
+ */
+export interface AgentStatusPayload {
+  status: string
+  agent?: {
+    id?: string
+    session?: Session
+  }
 }
 
 /** Plugin config: `enabled` and `title`, both optional with defaults. */

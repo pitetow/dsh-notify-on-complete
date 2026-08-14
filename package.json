@@ -1,6 +1,6 @@
 {
   "name": "dsh-notify-on-complete",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DeepSeek Harness plugin: desktop notification when a run ends",
   "type": "module",
   "license": "MIT",
@@ -15,6 +15,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepare": "pnpm run build",
+    "prepublishOnly": "pnpm run test && pnpm run typecheck",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

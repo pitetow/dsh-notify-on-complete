@@ -6,6 +6,14 @@ export interface NotifyCommand {
   args: string[]
 }
 
+/** The platforms this plugin supports; anything else is skipped with a warning. */
+export const supportedPlatforms: readonly NodeJS.Platform[] = ['darwin', 'linux', 'win32']
+
+/** Whether the platform has a notification command to run. */
+export function isSupportedPlatform(platform: NodeJS.Platform): boolean {
+  return supportedPlatforms.includes(platform)
+}
+
 /** Result text for a `turn/end` reason kind; unknown kinds fall through to a generic end. */
 export function resultText(kind: string): string {
   switch (kind) {
@@ -22,9 +30,19 @@ export function buildBody(result: string, sessionId: string): string {
   return `${result} (session: ${sessionId})`
 }
 
-/** Escape a string for a double-quoted AppleScript literal. */
+/**
+ * Escape a string for a double-quoted AppleScript literal. AppleScript has no
+ * multi-line string literals — a raw control character breaks the script — so
+ * backslash, quote, and the control characters AppleScript itself escapes
+ * (`\r`, `\n`, `\t`) are replaced with their escape sequences.
+ */
 function escapeAppleScript(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t')
 }
 
 /** Escape a string for a single-quoted PowerShell literal. */
@@ -40,7 +58,8 @@ function escapePowerShell(value: string): string {
  * @param title - the notification title, already final.
  * @param body - the notification body, already final.
  * @returns the ordered candidate commands.
- * @throws on unsupported platforms.
+ * @throws on unsupported platforms (callers should gate with
+ * {@link isSupportedPlatform} first).
  */
 export function buildCommands(platform: NodeJS.Platform, title: string, body: string): NotifyCommand[] {
   switch (platform) {

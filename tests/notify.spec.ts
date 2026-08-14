@@ -22,7 +22,7 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => mockChild.makeChild()),
 }))
 
-import { buildBody, buildCommands, resultText, spawnNotify } from '../src/notify.js'
+import { buildBody, buildCommands, isSupportedPlatform, resultText, spawnNotify } from '../src/notify.js'
 
 const mockedSpawn = vi.mocked(spawn)
 
@@ -65,6 +65,11 @@ describe('buildCommands', () => {
     expect(cmd.args[1]).toBe('display notification "Body \\\\ y" with title "Title \\"x\\""')
   })
 
+  it('escapes control characters for AppleScript (no raw newlines in literals)', () => {
+    const [cmd] = buildCommands('darwin', 'T', 'Line1\nLine2\tTab\rRet')
+    expect(cmd.args[1]).toBe('display notification "Line1\\nLine2\\tTab\\rRet" with title "T"')
+  })
+
   it('builds Linux notify-send with a kdialog fallback', () => {
     expect(buildCommands('linux', 'T', 'B')).toEqual([
       { command: 'notify-send', args: ['T', 'B'] },
@@ -80,6 +85,20 @@ describe('buildCommands', () => {
 
   it('throws on unsupported platforms', () => {
     expect(() => buildCommands('aix' as NodeJS.Platform, 'T', 'B')).toThrow(/unsupported platform/)
+  })
+})
+
+describe('isSupportedPlatform', () => {
+  it('accepts the three supported platforms', () => {
+    expect(isSupportedPlatform('darwin')).toBe(true)
+    expect(isSupportedPlatform('linux')).toBe(true)
+    expect(isSupportedPlatform('win32')).toBe(true)
+  })
+
+  it('rejects everything else', () => {
+    for (const platform of ['aix', 'freebsd', 'sunos', 'android', 'cygwin'] as NodeJS.Platform[]) {
+      expect(isSupportedPlatform(platform)).toBe(false)
+    }
   })
 })
 

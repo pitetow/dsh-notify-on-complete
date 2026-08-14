@@ -16,13 +16,17 @@
 
 ## 触发逻辑
 
-- 监听全局 `session/event`，过滤 `event.type === 'turn/end'`，且只看**根会话**（`session.header.parentSession === undefined`，排除子代理会话），保证 CLI 一次运行只通知一次。
+- 监听两个事件，协同判定"一次运行结束"：
+  - `session/event` 过滤 `turn/end`，只看根会话（`session.header.origin !== 'subagent'`，harness 自身识别子代理的口径），**记录**该会话最近一次轮次的 `reason.kind`。一次运行可跨多个轮次（goal 多轮、follow-up、steering），每轮一个 `turn/end`，只保留最后一次。
+  - `agent/status` 在根 agent 回到 `'idle'`（harness 的运行结束信号：web running 指示器与 `agent.whenIdle()` 均基于它）时，把记录的结果**发一次**并清除——保证一次运行一条通知、正文为最终结果，多轮 run 不刷屏、中途不会提前弹"任务已完成"。
+- 不用 `parentSession` 判定子代理：`parentSession` 同时标识 fork 血统（`fork()` 只设它不设 `origin`），用它过滤会误伤 fork/resume 出的根会话。
+- 不支持的平台（非 darwin/linux/win32）在 `apply` 时跳过并打警告，不在事件监听器里抛错。
 - `reason.kind` 映射正文：
   - `completed` → `任务已完成`
   - `error` → `任务失败`
   - `aborted` → `任务已中止`
   - `max-tokens` → `任务达到 token 上限`
-  - 其他（union 可扩展）→ `任务结束`
+  - 其他（union 可扩展，含 `blocked`/`interrupted` 等）→ `任务结束`
 
 ## 通知格式与平台命令
 
@@ -54,10 +58,13 @@
 dsh-notify-on-complete/
   package.json        # name: dsh-notify-on-complete, type: module, exports→lib/, peerDeps: @deepseek-ai/cordis
   tsconfig.json
-  src/index.ts        # 插件入口：name/Config/apply + session/event 监听
+  src/index.ts        # 插件入口：name/Config/apply + 平台门禁 + 事件接线
+  src/notifier.ts     # 运行结束状态机：记录最终 turn/end 结果，agent idle 时发一次
   src/notify.ts       # 平台检测 + 命令构建 + detached spawn
-  src/types.ts        # 配置与 turn/end reason 的结构类型
-  tests/notify.spec.ts  # vitest：结果映射、平台命令构建、平台选择
+  src/types.ts        # 配置与 turn/end reason / agent/status 的结构类型
+  tests/notify.spec.ts   # vitest：结果映射、平台命令构建、转义、spawn 回退
+  tests/notifier.spec.ts # vitest：运行结束状态机（一次运行一条、多轮取最终结果、子代理过滤）
+  tests/index.spec.ts    # vitest：插件入口（配置校验、enabled:false、平台门禁、端到端一次通知）
   README.md           # 安装、cordis.yml 加载示例、各平台说明
   example.cordis.yml  # 可直接粘贴的配置片段
 ```
