@@ -1,14 +1,26 @@
-# dsh-notify-on-complete — Desktop Notifications for DeepSeek Harness
+# dsh-notify-on-complete — Desktop Notifications for DeepSeek Harness · DeepSeek Harness 桌面通知插件
 
 Send desktop notifications from [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`): get a system notification when a run finishes, and an immediate one when the model asks you a question (`ask_user_question`) or waits for approval (sandbox escalation / tool permission). The body reflects the result (completed / error / aborted / max-tokens).
 
-> Author: [Luozy](https://github.com/pitetow) · License: [MIT](LICENSE) · [中文文档](README.zh.md)
+DeepSeek Harness（`dsh`）桌面通知插件：运行结束时向系统发送桌面通知；会话进行中模型提问（`ask_user_question`）或等待审批（沙箱提权 / 工具权限）时也会即时提醒你回来处理。正文按结果区分（成功 / 失败 / 中止 / 达到 token 上限）。
+
+> Author: [Luozy](https://github.com/pitetow) · License: [MIT](LICENSE) · 中文文档：[README.zh.md](README.zh.md)
 
 - **Zero runtime dependencies**: no `dsh` internal packages, no `ctx.shell`. Notifications are fired via `child_process.spawn` as a detached child process — **non-blocking and unaffected by the harness exit path**.
 - **Cross-platform**: the notifier command is picked from `process.platform` (macOS `osascript` / Linux `notify-send` → `kdialog` / Windows PowerShell). Unsupported platforms are skipped at load with a warning, never throwing per-event.
 - **System sound**: macOS system sound (`sound name "Glass"`), Windows .NET `SystemSounds`, Linux `canberra-gtk-play` (falls back to `paplay`); disable with `sound: false`.
 - **In-session blocking notifications**: fires immediately when the model calls `ask_user_question`, or when a sandbox escalation / tool permission waits for approval — so you know to come back. Controlled by `onBlocked` / `onQuestion` / `onApproval`.
 - **Top-level runs only**: subagent sessions are filtered out (`header.origin === 'subagent'`), so a single CLI run produces a single notification.
+
+## 功能特性（中文）
+
+- **零运行时依赖**：不依赖 dsh 内部包，通知用 `child_process.spawn` 以 detached 子进程发出，不阻塞、不受 harness 退出影响。
+- **跨平台**：macOS `osascript` / Linux `notify-send` → `kdialog` / Windows PowerShell 自动选择；不支持的平台加载时跳过并警告。
+- **系统提示音**：macOS `sound name "Glass"` / Windows SystemSounds / Linux `canberra-gtk-play`（回退 `paplay`）；可用 `sound: false` 关闭。
+- **会话中阻塞即时通知**：模型提问或等待审批时立即提醒你回来；可用 `onBlocked` / `onQuestion` / `onApproval` 精细控制。
+- **只通知顶层运行**：过滤子代理（`header.origin === 'subagent'`），一次 CLI 运行只弹一条。
+
+完整中文文档见 [README.zh.md](README.zh.md)。
 
 ## How it works
 

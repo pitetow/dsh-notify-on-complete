@@ -13,7 +13,10 @@
     "plugin",
     "cli",
     "nodejs",
-    "typescript"
+    "typescript",
+    "通知",
+    "桌面通知",
+    "插件"
   ],
   "type": "module",
   "license": "MIT",
