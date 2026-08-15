@@ -2,6 +2,8 @@
 
 # dsh-notify-on-complete
 
+<p align="center"><img src="assets/notify-cover.jpg" alt="dsh-notify-on-complete — 运行结束通知与系统提示音" width="640"></p>
+
 DeepSeek Harness 插件：每次 dsh 运行结束时向操作系统发送桌面通知，提示用户工作已完成；会话进行中模型提问或等待审批时也会即时通知提醒你回来处理。正文按结果区分（成功 / 失败 / 中止 / 达到 token 上限）。
 
 > 作者：[Luozy](https://github.com/pitetow) · 协议：[MIT](LICENSE)

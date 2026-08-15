@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- Background -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c2340"/>
+      <stop offset="1" stop-color="#0b0f1e"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef1f8"/>
+    </linearGradient>
+    <linearGradient id="chip" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4f7cff"/>
+      <stop offset="1" stop-color="#7a5cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="90" y="105" font-family="Helvetica Neue, Arial, sans-serif" font-size="50" font-weight="700" fill="#ffffff">dsh-notify-on-complete</text>
+  <text x="90" y="155" font-family="Helvetica Neue, Arial, sans-serif" font-size="26" fill="#98a2c0">运行结束时收到桌面通知与系统提示音</text>
+
+  <!-- Notification card -->
+  <g transform="translate(300, 225)">
+    <rect width="600" height="220" rx="26" fill="url(#card)"/>
+    <!-- App icon -->
+    <rect x="34" y="34" width="56" height="56" rx="14" fill="url(#chip)"/>
+    <text x="62" y="70" font-family="Helvetica Neue, Arial, sans-serif" font-size="30" fill="#ffffff" text-anchor="middle">✓</text>
+    <!-- Title -->
+    <text x="112" y="62" font-family="Helvetica Neue, Arial, sans-serif" font-size="24" font-weight="600" fill="#111827">DeepSeek Harness</text>
+    <!-- Time -->
+    <text x="552" y="62" font-family="Helvetica Neue, Arial, sans-serif" font-size="18" fill="#9aa3b2" text-anchor="end">现在</text>
+    <!-- Body -->
+    <text x="112" y="104" font-family="Helvetica Neue, Arial, sans-serif" font-size="22" fill="#374151">任务已完成 (session: 3f9a…)</text>
+    <!-- Sound hint -->
+    <text x="112" y="150" font-family="Helvetica Neue, Arial, sans-serif" font-size="19" fill="#6b7280">🔔 通知同时播放系统提示音</text>
+    <!-- Platform chips -->
+    <rect x="112" y="172" width="112" height="30" rx="15" fill="#e8ecf7"/>
+    <text x="168" y="193" font-family="Helvetica Neue, Arial, sans-serif" font-size="15" fill="#4b5563" text-anchor="middle">macOS</text>
+    <rect x="234" y="172" width="112" height="30" rx="15" fill="#e8ecf7"/>
+    <text x="290" y="193" font-family="Helvetica Neue, Arial, sans-serif" font-size="15" fill="#4b5563" text-anchor="middle">Linux</text>
+    <rect x="356" y="172" width="120" height="30" rx="15" fill="#e8ecf7"/>
+    <text x="416" y="193" font-family="Helvetica Neue, Arial, sans-serif" font-size="15" fill="#4b5563" text-anchor="middle">Windows</text>
+  </g>
+
+  <!-- Footer -->
+  <text x="90" y="545" font-family="Helvetica Neue, Arial, sans-serif" font-size="22" fill="#6b7590">✅ 运行结束通知 · ❓ 提问提醒 · ✋ 审批提醒 · 🔔 三平台提示音</text>
+  <text x="90" y="585" font-family="Helvetica Neue, Arial, sans-serif" font-size="18" fill="#4b5570">MIT License · 零运行时依赖 · 一键安装</text>
+</svg>

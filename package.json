@@ -40,6 +40,9 @@
     "cordis.patch.yml"
   ],
   "dsh": {
+    "category": "extension",
+    "displayName": "运行完成通知",
+    "image": "https://raw.githubusercontent.com/pitetow/dsh-notify-on-complete/main/assets/notify-cover.jpg",
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
