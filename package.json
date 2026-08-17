@@ -1,6 +1,6 @@
 {
   "name": "dsh-notify-on-complete",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Desktop notifications for DeepSeek Harness (dsh): run completion, model questions, and approval requests. Zero runtime dependencies — all peers provided by the dsh CLI.",
   "keywords": [
     "deepseek",
@@ -33,7 +33,10 @@
     ".": {
       "types": "./lib/types/index.d.ts",
       "import": "./lib/index.js"
-    }
+    },
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
   },
   "files": [
     "lib",
@@ -45,13 +48,24 @@
     "image": "https://raw.githubusercontent.com/pitetow/dsh-notify-on-complete/main/assets/notify-cover.jpg",
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/add-header.mjs",
+    "build": "pnpm run build:host && pnpm run build:client",
+    "build:host": "tsc -p tsconfig.json && node scripts/add-header.mjs",
+    "build:client": "tsdown && node scripts/normalize-client-banner.mjs",
     "prepare": "pnpm run build",
     "prepublishOnly": "pnpm run test && pnpm run typecheck",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "test": "vitest run"
   },
   "peerDependencies": {
@@ -64,6 +78,9 @@
     "@deepseek-ai/dsh-settings": "^0.1.0-rc.5",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^22",
+    "@types/react": "^18.3.12",
+    "react": "^18.3.1",
+    "tsdown": "^0.22.14",
     "typescript": "^5",
     "vitest": "^3"
   }

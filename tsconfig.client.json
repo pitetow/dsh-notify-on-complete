@@ -1,0 +1,20 @@
+{
+  // Copyright (c) 2026 Luozy
+  // SPDX-License-Identifier: MIT
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noImplicitAny": true,
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src/client"]
+}

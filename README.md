@@ -144,13 +144,15 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 
 ## Settings Panel (Web GUI)
 
-Open **dsh web → Settings → 插件** (or the plugin card's settings entry) and find the **notify-on-complete** section. The panel renders from the plugin's declared schema, so every option below is editable in the UI — no `cordis.patch.yml` edits needed:
+Open **dsh web → Settings → Plugins → Configurable** and expand the **notify-on-complete** card. Every option below is editable in the UI — no `cordis.patch.yml` edits needed:
 
 - **enabled / title / sound / onBlocked / onQuestion / onApproval** — the same switches as the config file.
 - **sounds** — per-tier sound names (macOS sound names like Glass / Sosumi / Ping / Funk, or `default`): completion, failure, and attention (question/approval) chimes. On macOS `default` means **no chime** — use it as a per-tier mute; Windows and Linux map `default` to their platform default sound.
-- **quietHours** — `"HH:MM-HH:MM"` ranges (start after end crosses midnight); inside a range the plugin is fully silent (no banner, no chime). Example: `["23:00-08:00"]`.
+- **quietHours** — `"HH:MM-HH:MM"` ranges (start after end crosses midnight); inside a range the plugin is fully silent (no banner, no chime). Example: `22:00-08:00, 12:00-13:00` (comma separated).
 
 Values take precedence over the profile's `cordis.patch.yml` config; fields you never touch fall back to the config file, then to defaults. Profiles without a settings service (e.g. CLI one-shot) simply use the config file as before.
+
+> The settings card is rendered by the plugin's browser half (`lib/client.js`) and only takes effect in a web profile. After upgrading to a version that ships the card, **restart the dsh web process** so the browser half is loaded (see "Restart" above).
 
 ## Configuration
 
