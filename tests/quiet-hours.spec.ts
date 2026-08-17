@@ -21,6 +21,8 @@ describe('parseQuietRange', () => {
     expect(parseQuietRange('23:60-08:00')).toBeNull()
     expect(parseQuietRange('23:00')).toBeNull()
     expect(parseQuietRange('23:00-08')).toBeNull()
+    // Defensive guard for any runtime path that slips a non-string through.
+    expect(parseQuietRange(123 as never)).toBeNull()
   })
 })
 

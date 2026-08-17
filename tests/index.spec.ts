@@ -36,6 +36,7 @@ interface MockCtx {
   on: ReturnType<typeof vi.fn>
   inject: ReturnType<typeof vi.fn>
   emit: (name: string, ...args: unknown[]) => void
+  fiber: { state: number }
 }
 
 function mockCtx(): MockCtx {
@@ -48,12 +49,15 @@ function mockCtx(): MockCtx {
       listeners.set(name, arr)
       return () => undefined
     }),
-    // No settings service ever mounts in tests: the injection callback never
-    // fires, so the entry config stands — the fallback path, verbatim.
+    // No settings service ever mounts in most tests: the injection callback
+    // never fires, so the entry config stands — the fallback path, verbatim.
     inject: vi.fn(),
     emit: (name: string, ...args: unknown[]) => {
       for (const listener of listeners.get(name) ?? []) listener(...args)
     },
+    // Cordis fiber state; 0 = active (the dsh-settings wiring reads it to
+    // skip work during plugin teardown).
+    fiber: { state: 0 },
   }
   return ctx
 }
@@ -299,30 +303,114 @@ describe('apply', () => {
   })
 
   it('does not notify during quiet hours', () => {
-    setPlatform('darwin')
-    const ctx = mockCtx()
-    apply(ctx, { quietHours: ['00:00-23:59'] })
-    ctx.emit('session/event', ...rootTurnEnd('completed'))
-    ctx.emit('agent/status', ...idleRoot())
-    expect(mockedSpawn).not.toHaveBeenCalled()
+    // Fake the wall clock so the quiet-hours judgment never depends on when the suite runs.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 0, 1, 10, 0))
+    try {
+      setPlatform('darwin')
+      const ctx = mockCtx()
+      apply(ctx, { quietHours: ['00:00-23:59'] })
+      ctx.emit('session/event', ...rootTurnEnd('completed'))
+      ctx.emit('agent/status', ...idleRoot())
+      expect(mockedSpawn).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('notifies outside quiet hours', () => {
-    setPlatform('darwin')
-    const ctx = mockCtx()
-    // 23:00-08:00 covers midnight; a 10:00 event is outside it.
-    apply(ctx, { quietHours: ['23:00-08:00'] })
-    ctx.emit('session/event', ...rootTurnEnd('completed'))
-    ctx.emit('agent/status', ...idleRoot())
-    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    // Fixed 10:00 — outside 23:00-08:00 (which covers midnight) — so the
+    // expectation holds at any real wall-clock hour.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 0, 1, 10, 0))
+    try {
+      setPlatform('darwin')
+      const ctx = mockCtx()
+      apply(ctx, { quietHours: ['23:00-08:00'] })
+      ctx.emit('session/event', ...rootTurnEnd('completed'))
+      ctx.emit('agent/status', ...idleRoot())
+      expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('uses the per-kind sound name for failures', () => {
     setPlatform('darwin')
     const ctx = mockCtx()
-    apply(ctx, { sounds: { error: 'Sosumi' } })
+    // Funk is not the default failure chime (Sosumi), so this only passes if
+    // the per-kind override is actually wired through.
+    apply(ctx, { sounds: { error: 'Funk' } })
     ctx.emit('session/event', ...rootTurnEnd('error'))
     ctx.emit('agent/status', ...idleRoot())
-    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('sound name "Sosumi"')
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('sound name "Funk"')
+  })
+
+  it('fails loud on a non-string quietHours element', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    expect(() => apply(ctx, { quietHours: [123 as unknown as string] })).toThrow(/config\.quietHours must be an array of strings/)
+  })
+
+  it('omits the chime from the macOS command when config.sound is false', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx, { sound: false })
+    ctx.emit('session/event', ...rootTurnEnd('completed'))
+    ctx.emit('agent/status', ...idleRoot())
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).not.toContain('sound name')
+  })
+
+  it('omits the chime from blocked notifications when config.sound is false', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx, { sound: false })
+    ctx.emit('session/event', ...rootToolCall('ask_user_question', '{"questions":[{"question":"要如何？"}]}'))
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).not.toContain('sound name')
+  })
+
+  describe('with the settings service attached', () => {
+    /** Make `ctx.inject` fire its callback synchronously with a fake settings scope. */
+    function attachSettings(ctx: MockCtx, scope: { get: () => NotifyConfig; watch: ReturnType<typeof vi.fn> }): void {
+      ctx.inject = vi.fn((services: unknown, cb: (sctx: { settings: { register: () => unknown }; effect: () => () => unknown }) => void) => {
+        cb({ settings: { register: () => scope }, effect: () => () => {} })
+      }) as never
+    }
+
+    function panelValue(title: string): NotifyConfig {
+      return { enabled: true, title, sound: true, sounds: { completed: 'Glass', error: 'Sosumi', approval: 'Ping' }, quietHours: [], onBlocked: true, onQuestion: true, onApproval: true }
+    }
+
+    it('uses the settings panel value when the settings service attaches', () => {
+      setPlatform('darwin')
+      const ctx = mockCtx()
+      const scope = { get: () => panelValue('Panel Title'), watch: vi.fn() }
+      attachSettings(ctx, scope)
+      apply(ctx, { title: 'Entry Title' })
+      ctx.emit('session/event', ...rootTurnEnd('completed'))
+      ctx.emit('agent/status', ...idleRoot())
+      expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('with title "Panel Title"')
+    })
+
+    it('applies settings panel edits live without a restart', () => {
+      setPlatform('darwin')
+      const ctx = mockCtx()
+      let panel = panelValue('Panel Title')
+      const scope = { get: () => panel, watch: vi.fn() }
+      attachSettings(ctx, scope)
+      apply(ctx, { title: 'Entry Title' })
+      ctx.emit('session/event', ...rootTurnEnd('completed'))
+      ctx.emit('agent/status', ...idleRoot())
+      expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('with title "Panel Title"')
+      // The panel commits a change: the scope's watch callback is the hook the
+      // plugin re-reads its source through.
+      panel = panelValue('Changed Title')
+      scope.watch.mock.calls[0]![0]()
+      ctx.emit('session/event', ...rootTurnEnd('completed'))
+      ctx.emit('agent/status', ...idleRoot())
+      expect(mockedSpawn.mock.calls[1]![1]!.join(' ')).toContain('with title "Changed Title"')
+    })
   })
 })

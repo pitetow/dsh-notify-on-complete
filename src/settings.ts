@@ -29,15 +29,18 @@ export const NotifySettingsSchema = Schema.object({
 /**
  * Wire this plugin's settings namespace into the harness: while a settings
  * service exists, the web panel edits take precedence over the composition
- * entry config; without one, the entry config stands.
+ * entry config; without one, the entry config stands. The source thunk is
+ * retained and re-read on every committed change, so panel edits apply live
+ * without a restart.
  * @param ctx - the plugin context.
  * @param config - the composition entry config (cordis.patch.yml layer).
  * @param setCurrent - sink for the authoritative value; called on attach,
  * detach, and every committed change.
  */
 export function installNotifySettings(ctx: Context, config: NotifyConfig, setCurrent: (value: NotifyConfig) => void): void {
+  let source: () => NotifyConfig = () => config
   installSettingsSection(ctx, NOTIFY_SETTINGS_NAMESPACE, NotifySettingsSchema, config, {
-    setSource: (current) => { setCurrent(current()) },
-    onChange: () => {},
+    setSource: (current) => { source = current; setCurrent(current()) },
+    onChange: () => { setCurrent(source()) },
   })
 }

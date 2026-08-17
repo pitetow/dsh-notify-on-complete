@@ -60,8 +60,12 @@ export class RunEndNotifier {
  * (`approval/asked`). Unlike {@link RunEndNotifier}, it reports immediately on
  * each event — no aggregation — because each ask is a separate "the session is
  * waiting on the user" moment. Subagent sessions are excluded via
- * `header.origin === 'subagent'`, and the `onQuestion` / `onApproval` switches
- * let the plugin turn one class off without touching the other.
+ * `header.origin === 'subagent'`.
+ *
+ * The `onQuestion` / `onApproval` constructor switches are accepted for API
+ * compatibility only: this plugin judges both dynamically in its notify
+ * callback (from the live settings/entry config), so the constructor always
+ * receives `true`.
  */
 export class BlockedNotifier {
   constructor(private readonly deps: {

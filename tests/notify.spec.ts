@@ -177,6 +177,18 @@ describe('buildCommands with differentiated sound', () => {
     const [cmd] = buildCommands('win32', 'T', 'B', 'Frog')
     expect(cmd.args.join(' ')).toContain('[System.Media.SystemSounds]::Asterisk.Play()')
   })
+
+  it('omits the sound name on macOS when withSound is false', () => {
+    const [cmd] = buildCommands('darwin', 'T', 'B', 'Glass', false)
+    expect(cmd.args[1]).toBe('display notification "B" with title "T"')
+  })
+
+  it('keeps the popup but drops the SystemSounds chime on Windows when withSound is false', () => {
+    const [cmd] = buildCommands('win32', 'T', 'B', 'Glass', false)
+    const joined = cmd.args.join(' ')
+    expect(joined).toContain('$ws.Popup(')
+    expect(joined).not.toContain('.Play()')
+  })
 })
 
 describe('buildSoundCommands with differentiated sound', () => {

@@ -16,11 +16,15 @@ function parseClock(value: string): number | null {
 
 /**
  * Parse a quiet-hours spec `"HH:MM-HH:MM"` (24h; start after end crosses
- * midnight) into `[startMin, endMin]`. Returns null on malformed input.
+ * midnight) into `[startMin, endMin]`. Returns null on malformed input —
+ * including a non-string spec, defended against here so any runtime path
+ * (e.g. an unvalidated settings document) degrades to "not quiet" instead of
+ * throwing.
  * @param spec - the spec string, e.g. `"23:00-08:00"`.
  * @returns the range in minutes, or null.
  */
 export function parseQuietRange(spec: string): [number, number] | null {
+  if (typeof spec !== 'string') return null
   const [startSpec, endSpec, ...extra] = spec.split('-')
   if (extra.length > 0) return null
   const start = startSpec === undefined ? null : parseClock(startSpec)

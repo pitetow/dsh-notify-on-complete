@@ -1,7 +1,7 @@
 {
   "name": "dsh-notify-on-complete",
   "version": "0.2.0",
-  "description": "Desktop notifications for DeepSeek Harness (dsh): get a system notification when a run completes, the model asks a question, or waits for approval. Zero-dependency Cordis plugin.",
+  "description": "Desktop notifications for DeepSeek Harness (dsh): run completion, model questions, and approval requests. Zero runtime dependencies — all peers provided by the dsh CLI.",
   "keywords": [
     "deepseek",
     "deepseek-harness",
@@ -56,12 +56,12 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-settings": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-settings": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^22",
     "typescript": "^5",

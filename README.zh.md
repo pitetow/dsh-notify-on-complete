@@ -137,7 +137,7 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 打开 **dsh web → 设置 → 插件**，找到 **notify-on-complete** 分区即可可视化配置——面板由插件声明的 schema 自动渲染，**无需手动编辑 `cordis.patch.yml`**：
 
 - **enabled / title / sound / onBlocked / onQuestion / onApproval** —— 与配置文件相同的开关。
-- **sounds** —— 每档事件音色（macOS 音色名如 Glass / Sosumi / Ping / Funk，或 `default`）：完成、失败、提问/审批三档可分别更换。
+- **sounds** —— 每档事件音色（macOS 音色名如 Glass / Sosumi / Ping / Funk，或 `default`）：完成、失败、提问/审批三档可分别更换。macOS 上 `default` 表示**不响铃**（可当作单档静音）；Windows 与 Linux 会把 `default` 映射为各自的平台默认提示音。
 - **quietHours** —— 勿扰时段 `"HH:MM-HH:MM"`（开始晚于结束表示跨天）；时段内完全不弹通知也不响铃。示例：`["23:00-08:00"]`。
 
 面板值优先于 profile 的 `cordis.patch.yml`；没动过的字段回退到配置文件，再到默认值。无设置服务的场景（如 CLI 一次性运行）按配置文件工作，行为不变。

@@ -43,7 +43,7 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
       throw new Error(`dsh-notify-on-complete: config.${key} must be a boolean, got ${typeof config[key]}`)
     }
   }
-  if (config.quietHours !== undefined && !Array.isArray(config.quietHours)) {
+  if (config.quietHours !== undefined && (!Array.isArray(config.quietHours) || !config.quietHours.every((range) => typeof range === 'string'))) {
     throw new Error(`dsh-notify-on-complete: config.quietHours must be an array of strings, got ${typeof config.quietHours}`)
   }
 
@@ -65,7 +65,7 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
     notify: (kind: string, sessionId: string, sessionTitle: string): void => {
       if (!active()) return
       const soundName = resolveSoundName(current.sounds, soundKeyFor(kind))
-      spawnNotify(buildCommands(process.platform, current.title ?? 'DeepSeek Harness', buildBody(resultText(kind), sessionId, sessionTitle), soundName))
+      spawnNotify(buildCommands(process.platform, current.title ?? 'DeepSeek Harness', buildBody(resultText(kind), sessionId, sessionTitle), soundName, current.sound ?? true))
       if (current.sound ?? true) spawnNotify(buildSoundCommands(process.platform, soundName))
     },
   })
@@ -77,7 +77,7 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
       if (kind === 'approval' && !(current.onApproval ?? true)) return
       if (!active()) return
       const soundName = resolveSoundName(current.sounds, soundKeyFor(kind))
-      spawnNotify(buildCommands(process.platform, current.title ?? 'DeepSeek Harness', blockedBody(kind, detail, sessionId, sessionTitle), soundName))
+      spawnNotify(buildCommands(process.platform, current.title ?? 'DeepSeek Harness', blockedBody(kind, detail, sessionId, sessionTitle), soundName, current.sound ?? true))
       if (current.sound ?? true) spawnNotify(buildSoundCommands(process.platform, soundName))
     },
     onQuestion: true,

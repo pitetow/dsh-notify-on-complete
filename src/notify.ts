@@ -104,21 +104,25 @@ function escapePowerShell(value: string): string {
  * Build the candidate notification commands for a platform, most preferred
  * first. macOS uses osascript; Linux prefers notify-send and falls back to
  * kdialog; Windows uses a PowerShell WScript.Shell popup. macOS embeds the
- * sound name; Windows maps it to a .NET SystemSounds member.
+ * sound name; Windows maps it to a .NET SystemSounds member. `withSound:
+ * false` silences both: macOS omits the `sound name` part entirely and
+ * Windows skips the `SystemSounds` prefix, leaving the popup only.
  * @param platform - `process.platform` value.
  * @param title - the notification title, already final.
  * @param body - the notification body, already final.
  * @param soundName - macOS sound name, or `'default'` for the platform default.
+ * @param withSound - whether the command plays a chime; `false` mutes the
+ * embedded sound on macOS and Windows.
  * @returns the ordered candidate commands.
  * @throws on unsupported platforms (callers should gate with
  * {@link isSupportedPlatform} first).
  */
-export function buildCommands(platform: NodeJS.Platform, title: string, body: string, soundName = 'Glass'): NotifyCommand[] {
+export function buildCommands(platform: NodeJS.Platform, title: string, body: string, soundName = 'Glass', withSound = true): NotifyCommand[] {
   switch (platform) {
     case 'darwin':
       return [{
         command: 'osascript',
-        args: ['-e', `display notification "${escapeAppleScript(body)}" with title "${escapeAppleScript(title)}"${soundName === 'default' ? '' : ` sound name "${escapeAppleScript(soundName)}"`}`],
+        args: ['-e', `display notification "${escapeAppleScript(body)}" with title "${escapeAppleScript(title)}"${withSound && soundName !== 'default' ? ` sound name "${escapeAppleScript(soundName)}"` : ''}`],
       }]
     case 'linux':
       return [
@@ -127,9 +131,10 @@ export function buildCommands(platform: NodeJS.Platform, title: string, body: st
       ]
     case 'win32': {
       const windowsSound = { Glass: 'Asterisk', Sosumi: 'Exclamation', Ping: 'Question' }[soundName] ?? 'Asterisk'
+      const soundPrefix = withSound ? `[System.Media.SystemSounds]::${windowsSound}.Play(); ` : ''
       return [{
         command: 'powershell',
-        args: ['-NoProfile', '-Command', `[System.Media.SystemSounds]::${windowsSound}.Play(); $ws = New-Object -ComObject WScript.Shell; $ws.Popup('${escapePowerShell(body)}', 5, '${escapePowerShell(title)}', 64)`],
+        args: ['-NoProfile', '-Command', `${soundPrefix}$ws = New-Object -ComObject WScript.Shell; $ws.Popup('${escapePowerShell(body)}', 5, '${escapePowerShell(title)}', 64)`],
       }]
     }
     default:
