@@ -35,6 +35,8 @@ interface MockCtx {
   logger: { warn: ReturnType<typeof vi.fn> }
   on: ReturnType<typeof vi.fn>
   inject: ReturnType<typeof vi.fn>
+  get: ReturnType<typeof vi.fn>
+  effect: ReturnType<typeof vi.fn>
   emit: (name: string, ...args: unknown[]) => void
   fiber: { state: number }
 }
@@ -52,6 +54,9 @@ function mockCtx(): MockCtx {
     // No settings service ever mounts in most tests: the injection callback
     // never fires, so the entry config stands — the fallback path, verbatim.
     inject: vi.fn(),
+    // No webServer in unit tests: the settings API route is skipped.
+    get: vi.fn(() => undefined),
+    effect: vi.fn(),
     emit: (name: string, ...args: unknown[]) => {
       for (const listener of listeners.get(name) ?? []) listener(...args)
     },

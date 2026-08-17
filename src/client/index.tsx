@@ -6,24 +6,27 @@
  * dsh-notify-on-complete client half.
  *
  * Registers the plugin's settings card into the Plugins settings section
- * (设置 → 插件 → 配置) and renders the staged form over the
- * `notify-on-complete` settings namespace: enable switch, title, sound toggle,
- * per-tier sound selectors, quiet hours, and the blocking/approval switches.
- * All data rides the settings scope bound to the host-registered namespace;
- * the bundle itself is a module-table consumer (react only — resolved by the
- * shell at runtime, never inlined).
+ * (设置 → 插件 → 配置) and renders the staged form over the plugin's config:
+ * enable switch, title, sound toggle, per-tier sound selectors, quiet hours,
+ * and the blocking/approval switches. Data rides the plugin's own JSON route
+ * (`/notify-on-complete/api/config`) — the harness's settings API serves only
+ * an explicit allowlist of namespaces to the browser, so the settings scope is
+ * not a viable read/write channel for a third-party namespace. The bundle
+ * itself is a module-table consumer (react only — resolved by the shell at
+ * runtime, never inlined).
  * @module dsh-notify-on-complete/client
  */
 
 import { createElement } from 'react'
 import { NotifyCard, type NotifyCardProps } from './NotifyCard.js'
-import { NotifyCardController, type SettingsScopeLike } from './notify-settings.js'
+import { NotifyConfigStore } from './config-store.js'
+import { NotifyCardController } from './notify-settings.js'
 import { NOTIFY_CSS } from './styles.js'
 
 export const name = 'dsh-notify-on-complete'
 
-/** Required services (cordis fiber inject): the settings scope, slots, and the scope transport. */
-export const inject = ['slots', 'settingsScope', 'connection', 'remote']
+/** Required services (cordis fiber inject): only the slots registry. */
+export const inject = ['slots']
 
 /** Minimal client slots face. */
 interface SlotsService {
@@ -41,7 +44,6 @@ interface SlotsService {
 interface ClientContext {
   get(name: string): unknown
   effect(callback: () => void | (() => void), label?: string): void
-  settingsScope: { bind<T>(spec: { namespace: string }): SettingsScopeLike<T> }
   slots: SlotsService
 }
 
@@ -66,10 +68,11 @@ export function apply(ctx: ClientContext): void {
   ensureStyles()
   const slots = ctx.get('slots') as SlotsService | undefined
   if (slots === undefined) return
-  // Bind the settings scope on this fiber: the binding registers its own
-  // teardown, so the card only lives while this plugin is mounted.
-  const scope = ctx.settingsScope.bind<Record<string, unknown>>({ namespace: 'notify-on-complete' })
-  const controller = new NotifyCardController(scope)
+  // Read config through the plugin's JSON route; the store re-reads after
+  // every write, and the card renders nothing until the first read lands.
+  const store = new NotifyConfigStore()
+  const controller = new NotifyCardController(store)
+  void store.load()
   ctx.effect(
     () => slots.inject('settings.plugin.item', () => slots.register(
       { name: 'settings.plugin.item', id: 'notify-on-complete', order: 30, inject: () => controller.inject() },

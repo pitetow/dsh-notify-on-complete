@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 import type { Context } from '@deepseek-ai/cordis'
+import { createNotifyApiHandler } from './api.js'
 import { blockedBody, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resolveSoundName, resultText, soundKeyFor, spawnNotify } from './notify.js'
 import { isInQuietHours } from './quiet-hours.js'
 import { BlockedNotifier, RunEndNotifier } from './notifier.js'
@@ -50,6 +51,20 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
   // The authoritative value: settings panel user layer > entry config > defaults.
   let current: NotifyConfig = config
   installNotifySettings(ctx, config, (value) => { current = value })
+
+  // The browser settings card reads and writes through this route: the
+  // harness's settings API serves only an explicit allowlist to the web
+  // client, so the plugin exposes its own config JSON route instead. Only web
+  // profiles mount webServer; CLI one-shot runs skip the route entirely.
+  const webServer = ctx.get('webServer')
+  if (webServer !== undefined && typeof webServer.register === 'function') {
+    const disposeRoute = webServer.register({
+      kind: 'prefix',
+      path: '/notify-on-complete/api',
+      handler: createNotifyApiHandler(ctx),
+    })
+    ctx.effect(() => disposeRoute, 'dsh-notify-on-complete: settings api route')
+  }
 
   if (!(current.enabled ?? true)) return
 
