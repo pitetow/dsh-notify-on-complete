@@ -142,6 +142,16 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 
 ---
 
+## Settings Panel (Web GUI)
+
+Open **dsh web → Settings → 插件** (or the plugin card's settings entry) and find the **notify-on-complete** section. The panel renders from the plugin's declared schema, so every option below is editable in the UI — no `cordis.patch.yml` edits needed:
+
+- **enabled / title / sound / onBlocked / onQuestion / onApproval** — the same switches as the config file.
+- **sounds** — per-tier sound names (macOS sound names like Glass / Sosumi / Ping / Funk, or `default`): completion, failure, and attention (question/approval) chimes.
+- **quietHours** — `"HH:MM-HH:MM"` ranges (start after end crosses midnight); inside a range the plugin is fully silent (no banner, no chime). Example: `["23:00-08:00"]`.
+
+Values take precedence over the profile's `cordis.patch.yml` config; fields you never touch fall back to the config file, then to defaults. Profiles without a settings service (e.g. CLI one-shot) simply use the config file as before.
+
 ## Configuration
 
 Configuration lives in the **profile's `cordis.patch.yml`** (the user layer, applied last, wins per row):
@@ -206,6 +216,8 @@ Common scenarios:
 | `onBlocked` | boolean | `true` | Master switch for blocking notifications; `false` disables question + approval notifications |
 | `onQuestion` | boolean | `true` | Question (`ask_user_question`) notifications; only applies when `onBlocked: true` |
 | `onApproval` | boolean | `true` | Approval/permission notifications; only applies when `onBlocked: true` |
+| `sounds` | object | `{completed: "Glass", error: "Sosumi", approval: "Ping"}` | 每档事件的音色（macOS 音色名或 `default`） |
+| `quietHours` | string[] | `[]` | 勿扰时段 `"HH:MM-HH:MM"`（开始晚于结束表示跨天）；时段内完全不通知 |
 
 Config is validated at load time (fail loud): a type error fails startup instead of being silently ignored.
 
