@@ -34,6 +34,7 @@ const mockedSpawn = vi.mocked(spawn)
 interface MockCtx {
   logger: { warn: ReturnType<typeof vi.fn> }
   on: ReturnType<typeof vi.fn>
+  inject: ReturnType<typeof vi.fn>
   emit: (name: string, ...args: unknown[]) => void
 }
 
@@ -47,6 +48,9 @@ function mockCtx(): MockCtx {
       listeners.set(name, arr)
       return () => undefined
     }),
+    // No settings service ever mounts in tests: the injection callback never
+    // fires, so the entry config stands — the fallback path, verbatim.
+    inject: vi.fn(),
     emit: (name: string, ...args: unknown[]) => {
       for (const listener of listeners.get(name) ?? []) listener(...args)
     },
@@ -292,5 +296,33 @@ describe('apply', () => {
     expect(() => apply(ctx, { onBlocked: 1 as unknown as NotifyConfig['onBlocked'] })).toThrow(/config\.onBlocked must be a boolean/)
     expect(() => apply(ctx, { onQuestion: 1 as unknown as NotifyConfig['onQuestion'] })).toThrow(/config\.onQuestion must be a boolean/)
     expect(() => apply(ctx, { onApproval: 1 as unknown as NotifyConfig['onApproval'] })).toThrow(/config\.onApproval must be a boolean/)
+  })
+
+  it('does not notify during quiet hours', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx, { quietHours: ['00:00-23:59'] })
+    ctx.emit('session/event', ...rootTurnEnd('completed'))
+    ctx.emit('agent/status', ...idleRoot())
+    expect(mockedSpawn).not.toHaveBeenCalled()
+  })
+
+  it('notifies outside quiet hours', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    // 23:00-08:00 covers midnight; a 10:00 event is outside it.
+    apply(ctx, { quietHours: ['23:00-08:00'] })
+    ctx.emit('session/event', ...rootTurnEnd('completed'))
+    ctx.emit('agent/status', ...idleRoot())
+    expect(mockedSpawn).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses the per-kind sound name for failures', () => {
+    setPlatform('darwin')
+    const ctx = mockCtx()
+    apply(ctx, { sounds: { error: 'Sosumi' } })
+    ctx.emit('session/event', ...rootTurnEnd('error'))
+    ctx.emit('agent/status', ...idleRoot())
+    expect(mockedSpawn.mock.calls[0]![1]!.join(' ')).toContain('sound name "Sosumi"')
   })
 })

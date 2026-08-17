@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: MIT
  */
 import type { Context } from '@deepseek-ai/cordis'
-import { blockedBody, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, spawnNotify } from './notify.js'
+import { blockedBody, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resolveSoundName, resultText, soundKeyFor, spawnNotify } from './notify.js'
+import { isInQuietHours } from './quiet-hours.js'
 import { BlockedNotifier, RunEndNotifier } from './notifier.js'
+import { installNotifySettings } from './settings.js'
 import type { AgentStatusPayload, NotifyConfig, Session, SessionEvent } from './types.js'
 
 export const name = 'dsh-notify-on-complete'
@@ -22,55 +24,67 @@ export const name = 'dsh-notify-on-complete'
  * throwing inside event listeners. Blocking interactions (questions and
  * approvals) during a session also fire an immediate notification.
  * @param ctx - the plugin context.
- * @param config - optional { enabled?, title?, sound?, onBlocked?, onQuestion?, onApproval? }.
+ * @param config - optional { enabled?, title?, sound?, sounds?, quietHours?, onBlocked?, onQuestion?, onApproval? }.
  */
 export function apply(ctx: Context, config: NotifyConfig = {}): void {
-  const enabled = config.enabled ?? true
-  const title = config.title ?? 'DeepSeek Harness'
-  if (typeof enabled !== 'boolean') {
-    throw new Error(`dsh-notify-on-complete: config.enabled must be a boolean, got ${typeof enabled}`)
+  // Entry-config validation stays fail-loud for profiles without a settings
+  // service; the settings panel validates its own writes via the schema.
+  if (config.enabled !== undefined && typeof config.enabled !== 'boolean') {
+    throw new Error(`dsh-notify-on-complete: config.enabled must be a boolean, got ${typeof config.enabled}`)
   }
-  if (typeof title !== 'string') {
-    throw new Error(`dsh-notify-on-complete: config.title must be a string, got ${typeof title}`)
+  if (config.title !== undefined && typeof config.title !== 'string') {
+    throw new Error(`dsh-notify-on-complete: config.title must be a string, got ${typeof config.title}`)
   }
-  const sound = config.sound ?? true
-  if (typeof sound !== 'boolean') {
-    throw new Error(`dsh-notify-on-complete: config.sound must be a boolean, got ${typeof sound}`)
+  if (config.sound !== undefined && typeof config.sound !== 'boolean') {
+    throw new Error(`dsh-notify-on-complete: config.sound must be a boolean, got ${typeof config.sound}`)
   }
-  const onBlocked = config.onBlocked ?? true
-  if (typeof onBlocked !== 'boolean') {
-    throw new Error(`dsh-notify-on-complete: config.onBlocked must be a boolean, got ${typeof onBlocked}`)
+  for (const key of ['onBlocked', 'onQuestion', 'onApproval'] as const) {
+    if (config[key] !== undefined && typeof config[key] !== 'boolean') {
+      throw new Error(`dsh-notify-on-complete: config.${key} must be a boolean, got ${typeof config[key]}`)
+    }
   }
-  const onQuestion = config.onQuestion ?? true
-  if (typeof onQuestion !== 'boolean') {
-    throw new Error(`dsh-notify-on-complete: config.onQuestion must be a boolean, got ${typeof onQuestion}`)
+  if (config.quietHours !== undefined && !Array.isArray(config.quietHours)) {
+    throw new Error(`dsh-notify-on-complete: config.quietHours must be an array of strings, got ${typeof config.quietHours}`)
   }
-  const onApproval = config.onApproval ?? true
-  if (typeof onApproval !== 'boolean') {
-    throw new Error(`dsh-notify-on-complete: config.onApproval must be a boolean, got ${typeof onApproval}`)
-  }
-  if (!enabled) return
+
+  // The authoritative value: settings panel user layer > entry config > defaults.
+  let current: NotifyConfig = config
+  installNotifySettings(ctx, config, (value) => { current = value })
+
+  if (!(current.enabled ?? true)) return
 
   if (!isSupportedPlatform(process.platform)) {
     ctx.logger?.warn?.(`dsh-notify-on-complete: unsupported platform "${process.platform}" — notifications disabled`)
     return
   }
 
+  /** Suppressed during quiet hours and when disabled. */
+  const active = (): boolean => (current.enabled ?? true) && !isInQuietHours(new Date(), current.quietHours ?? [])
+
   const notifier = new RunEndNotifier({
     notify: (kind: string, sessionId: string, sessionTitle: string): void => {
-      spawnNotify(buildCommands(process.platform, title, buildBody(resultText(kind), sessionId, sessionTitle)))
-      if (sound) spawnNotify(buildSoundCommands(process.platform))
+      if (!active()) return
+      const soundName = resolveSoundName(current.sounds, soundKeyFor(kind))
+      spawnNotify(buildCommands(process.platform, current.title ?? 'DeepSeek Harness', buildBody(resultText(kind), sessionId, sessionTitle), soundName))
+      if (current.sound ?? true) spawnNotify(buildSoundCommands(process.platform, soundName))
     },
   })
 
-  const blockedNotifier = onBlocked ? new BlockedNotifier({
+  const blockedNotifier = new BlockedNotifier({
     notify: (kind: string, detail: string, sessionId: string, sessionTitle: string): void => {
-      spawnNotify(buildCommands(process.platform, title, blockedBody(kind, detail, sessionId, sessionTitle)))
-      if (sound) spawnNotify(buildSoundCommands(process.platform))
+      if (!(current.onBlocked ?? true)) return
+      if (kind === 'question' && !(current.onQuestion ?? true)) return
+      if (kind === 'approval' && !(current.onApproval ?? true)) return
+      if (!active()) return
+      const soundName = resolveSoundName(current.sounds, soundKeyFor(kind))
+      spawnNotify(buildCommands(process.platform, current.title ?? 'DeepSeek Harness', blockedBody(kind, detail, sessionId, sessionTitle), soundName))
+      if (current.sound ?? true) spawnNotify(buildSoundCommands(process.platform, soundName))
     },
-    onQuestion,
-    onApproval,
-  }) : undefined
+    onQuestion: true,
+    onApproval: true,
+  })
+  // The actual switches are judged dynamically inside the callback from
+  // `current`, so the constructor flags stay all-on.
 
   // The harness's typed `session/event` and `agent/status` declarations live in
   // the unpublished @deepseek-ai/dsh-session / @deepseek-ai/dsh-agent packages,

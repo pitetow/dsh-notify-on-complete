@@ -64,12 +64,16 @@ export interface AgentStatusPayload {
   }
 }
 
-/** Plugin config: `enabled`, `title`, `sound` and the blocking-action switches, all optional with defaults. */
+/** Plugin config: all optional with defaults; settings panel overlays config. */
 export interface NotifyConfig {
   enabled?: boolean
   title?: string
   /** Play a system sound alongside the notification; default `true`. */
   sound?: boolean
+  /** Per-tier sound overrides (macOS sound names); defaults in DEFAULT_SOUNDS. */
+  sounds?: Partial<Record<'completed' | 'error' | 'approval', string>>
+  /** Quiet-hours specs "HH:MM-HH:MM" (start after end crosses midnight); empty = never quiet. */
+  quietHours?: string[]
   /** Notify on blocking user-interactions (questions + approvals); default `true`. */
   onBlocked?: boolean
   /** Notify when the model asks a question (`ask_user_question`); default `true`. */
