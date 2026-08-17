@@ -191,6 +191,20 @@ describe('NotifyCardController', () => {
     expect(form.getSnapshot().enabled.value).toBe(true)
   })
 
+  it('keeps the snapshot reference stable until something changes', () => {
+    const scope = fakeScope({
+      value: { enabled: true, sound: true, sounds: {}, onBlocked: true, onQuestion: true, onApproval: true, title: 'DeepSeek Harness', quietHours: [] },
+    })
+    const form = new NotifyCardController(scope)
+    const first = form.getSnapshot()
+    // The selector hook the card binds compares with Object.is, so repeated
+    // reads must return the identical reference while nothing changed.
+    expect(form.getSnapshot()).toBe(first)
+    form.stage('sound', false)
+    expect(form.getSnapshot()).not.toBe(first)
+    expect(form.getSnapshot().sound.value).toBe(false)
+  })
+
   it('keeps drafts and reports failed when a write does not land', async () => {
     const scope = fakeScope({
       value: { enabled: true, sound: true, sounds: {}, onBlocked: true, onQuestion: true, onApproval: true, title: 'DeepSeek Harness', quietHours: [] },

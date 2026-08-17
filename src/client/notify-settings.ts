@@ -165,14 +165,29 @@ export class NotifyCardController {
   private readonly listeners = new Set<() => void>()
   private saving = false
   private failed = false
+  /** The last published projection; replaced only when the next one differs. */
+  private cached: NotifyCardSnapshot
 
   /** @param scope - the bound settings scope for the `notify-on-complete` namespace. */
   constructor(private readonly scope: SettingsScopeLike<NotifySection>) {
+    this.cached = this.project()
     scope.subscribe(() => this.publish())
   }
 
-  /** @returns the current snapshot projection (stable until the next change). */
+  /**
+   * @returns the current snapshot projection. The reference is stable until
+   * the scope or a draft actually changes — the selector hook the card binds
+   * compares with `Object.is`, so a fresh object per call would loop renders.
+   */
   getSnapshot(): NotifyCardSnapshot {
+    return this.cached
+  }
+
+  /**
+   * Rebuild the projection from the scope and the staged drafts.
+   * @returns the next snapshot.
+   */
+  private project(): NotifyCardSnapshot {
     const snapshot = this.scope.getSnapshot()
     const shell: NotifyFormState = {
       available: snapshot.status === 'ready',
@@ -374,6 +389,8 @@ export class NotifyCardController {
   }
 
   private publish(): void {
+    const next = this.project()
+    if (!deepEqualJson(next, this.cached)) this.cached = next
     for (const listener of [...this.listeners]) listener()
   }
 }
