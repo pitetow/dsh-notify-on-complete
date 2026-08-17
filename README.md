@@ -152,7 +152,7 @@ Open **dsh web → Settings → Plugins → Configurable** and expand the **noti
 
 Values take precedence over the profile's `cordis.patch.yml` config; fields you never touch fall back to the config file, then to defaults. Profiles without a settings service (e.g. CLI one-shot) simply use the config file as before.
 
-> The settings card is rendered by the plugin's browser half (`lib/client.js`) and only takes effect in a web profile. After upgrading to a version that ships the card, **restart the dsh web process** so the browser half is loaded (see "Restart" above).
+> The settings card is rendered by the plugin's browser half (`lib/client.js`) and reads/writes through the plugin's own JSON route (`GET/POST /notify-on-complete/api/config`) — the harness's settings API serves only an allowlist of namespaces to the web client, so third-party plugins expose their own route. It only takes effect in a web profile. After upgrading to a version that ships the card, **restart the dsh web process** so the browser half is loaded (see "Restart" above).
 
 ## Configuration
 

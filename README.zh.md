@@ -142,7 +142,7 @@ grep dsh-notify ~/.dsh/profiles/web/package.json
 
 面板值优先于 profile 的 `cordis.patch.yml`；没动过的字段回退到配置文件，再到默认值。无设置服务的场景（如 CLI 一次性运行）按配置文件工作，行为不变。
 
-> 设置卡片由插件的浏览器端（client half，`lib/client.js`）渲染，仅在 web profile 中生效。升级到含设置卡片的版本后需**重启 dsh web 进程**，浏览器端才会被加载（见上文"重启生效"）。
+> 设置卡片由插件的浏览器端（client half，`lib/client.js`）渲染，数据经插件自带的 JSON 路由 `GET/POST /notify-on-complete/api/config` 读写（harness 的设置 API 只对白名单命名空间开放，第三方插件需自带路由）。仅在 web profile 中生效。升级后需**重启 dsh web 进程**（见上文"重启生效"）。
 
 ## 配置
 
