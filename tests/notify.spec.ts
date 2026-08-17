@@ -26,7 +26,7 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => mockChild.makeChild()),
 }))
 
-import { approvalDetail, blockedBody, blockedQuestionText, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resultText, sessionTitle, spawnNotify } from '../src/notify.js'
+import { approvalDetail, blockedBody, blockedQuestionText, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resolveSoundName, resultText, sessionTitle, soundKeyFor, spawnNotify } from '../src/notify.js'
 
 const mockedSpawn = vi.mocked(spawn)
 
@@ -126,6 +126,72 @@ describe('buildSoundCommands', () => {
     expect(buildSoundCommands('win32')).toEqual([])
     // Never throws, even on unsupported platforms — callers rely on the empty chain.
     expect(buildSoundCommands('aix' as NodeJS.Platform)).toEqual([])
+  })
+})
+
+describe('soundKeyFor', () => {
+  it('groups turn-end kinds into the three sound tiers', () => {
+    expect(soundKeyFor('completed')).toBe('completed')
+    expect(soundKeyFor('error')).toBe('error')
+    expect(soundKeyFor('aborted')).toBe('error')
+    expect(soundKeyFor('max-tokens')).toBe('error')
+    expect(soundKeyFor('unknown')).toBe('error')
+    expect(soundKeyFor('question')).toBe('approval')
+    expect(soundKeyFor('approval')).toBe('approval')
+  })
+})
+
+describe('resolveSoundName', () => {
+  it('falls back to the per-kind default', () => {
+    expect(resolveSoundName(undefined, 'completed')).toBe('Glass')
+    expect(resolveSoundName({}, 'error')).toBe('Sosumi')
+  })
+
+  it('prefers an explicit override', () => {
+    expect(resolveSoundName({ completed: 'Funk' }, 'completed')).toBe('Funk')
+  })
+})
+
+describe('buildCommands with differentiated sound', () => {
+  it('embeds a custom sound name on macOS', () => {
+    const [cmd] = buildCommands('darwin', 'T', 'B', 'Sosumi')
+    expect(cmd.args[1]).toBe('display notification "B" with title "T" sound name "Sosumi"')
+  })
+
+  it('omits the sound name for the platform default on macOS', () => {
+    const [cmd] = buildCommands('darwin', 'T', 'B', 'default')
+    expect(cmd.args[1]).toBe('display notification "B" with title "T"')
+  })
+
+  it('keeps Glass as the default when no sound name is given', () => {
+    const [cmd] = buildCommands('darwin', 'T', 'B')
+    expect(cmd.args[1]).toBe('display notification "B" with title "T" sound name "Glass"')
+  })
+
+  it('maps macOS sound names to Windows SystemSounds', () => {
+    const [cmd] = buildCommands('win32', 'T', 'B', 'Sosumi')
+    expect(cmd.args.join(' ')).toContain('[System.Media.SystemSounds]::Exclamation.Play()')
+  })
+
+  it('maps unknown sound names to the Windows Asterisk fallback', () => {
+    const [cmd] = buildCommands('win32', 'T', 'B', 'Frog')
+    expect(cmd.args.join(' ')).toContain('[System.Media.SystemSounds]::Asterisk.Play()')
+  })
+})
+
+describe('buildSoundCommands with differentiated sound', () => {
+  it('maps a custom sound to the linux canberra event and paplay file', () => {
+    expect(buildSoundCommands('linux', 'Sosumi')).toEqual([
+      { command: 'canberra-gtk-play', args: ['-i', 'error'] },
+      { command: 'paplay', args: ['/usr/share/sounds/freedesktop/stereo/error.oga'] },
+    ])
+  })
+
+  it('maps the platform default to the linux completion chime', () => {
+    expect(buildSoundCommands('linux', 'default')).toEqual([
+      { command: 'canberra-gtk-play', args: ['-i', 'complete'] },
+      { command: 'paplay', args: ['/usr/share/sounds/freedesktop/stereo/complete.oga'] },
+    ])
   })
 })
 
