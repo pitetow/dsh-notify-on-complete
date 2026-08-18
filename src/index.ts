@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Luozy
  * SPDX-License-Identifier: MIT
  */
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import { createNotifyApiHandler } from './api.js'
 import { blockedBody, buildBody, buildCommands, buildSoundCommands, isSupportedPlatform, resolveSoundName, resultText, soundKeyFor, spawnNotify } from './notify.js'
@@ -54,17 +55,25 @@ export function apply(ctx: Context, config: NotifyConfig = {}): void {
 
   // The browser settings card reads and writes through this route: the
   // harness's settings API serves only an explicit allowlist to the web
-  // client, so the plugin exposes its own config JSON route instead. Only web
-  // profiles mount webServer; CLI one-shot runs skip the route entirely.
-  const webServer = ctx.get('webServer')
-  if (webServer !== undefined && typeof webServer.register === 'function') {
-    const disposeRoute = webServer.register({
-      kind: 'prefix',
-      path: '/notify-on-complete/api',
-      handler: createNotifyApiHandler(ctx),
-    })
-    ctx.effect(() => disposeRoute, 'dsh-notify-on-complete: settings api route')
-  }
+  // client, so the plugin exposes its own config JSON route instead. The
+  // webServer service mounts after this bundle in web profiles, so wait on
+  // the service rather than reading it at apply time; CLI one-shot runs never
+  // satisfy the injection and the route simply never registers.
+  ctx.inject(['webServer'], (sctx) => {
+    const webServer = sctx.get('webServer') as { register(route: {
+      kind: 'prefix'
+      path: string
+      handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>
+    }): () => void }
+    sctx.effect(
+      () => webServer.register({
+        kind: 'prefix',
+        path: '/notify-on-complete/api',
+        handler: createNotifyApiHandler(ctx),
+      }),
+      'dsh-notify-on-complete: settings api route',
+    )
+  })
 
   if (!(current.enabled ?? true)) return
 

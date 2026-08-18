@@ -379,8 +379,17 @@ describe('apply', () => {
   describe('with the settings service attached', () => {
     /** Make `ctx.inject` fire its callback synchronously with a fake settings scope. */
     function attachSettings(ctx: MockCtx, scope: { get: () => NotifyConfig; watch: ReturnType<typeof vi.fn> }): void {
-      ctx.inject = vi.fn((services: unknown, cb: (sctx: { settings: { register: () => unknown }; effect: () => () => unknown }) => void) => {
-        cb({ settings: { register: () => scope }, effect: () => () => {} })
+      ctx.inject = vi.fn((services: unknown, cb: (sctx: {
+        settings: { register: () => unknown }
+        effect: () => () => unknown
+        get: (name: string) => unknown
+      }) => void) => {
+        cb({
+          settings: { register: () => scope },
+          effect: () => () => {},
+          // No webServer in unit tests: the settings API route is skipped.
+          get: () => undefined,
+        })
       }) as never
     }
 
