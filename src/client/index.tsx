@@ -25,6 +25,15 @@ import { NOTIFY_CSS } from './styles.js'
 
 export const name = 'dsh-notify-on-complete'
 
+/**
+ * Keyed-slot key for the settings card: the settings namespace this card
+ * edits, mirroring the host side's `NOTIFY_SETTINGS_NAMESPACE` (src/settings.ts)
+ * and `NOTIFY_NS` (src/api.ts). The configurable-plugins tab dispatches a
+ * card only when its key names a served namespace, and a keyed registration
+ * without `key` fails the plugin load, so the two must never drift.
+ */
+const SETTINGS_NAMESPACE = 'notify-on-complete'
+
 /** Required services (cordis fiber inject): only the slots registry. */
 export const inject = ['slots']
 
@@ -33,7 +42,8 @@ interface SlotsService {
   inject(key: string, callback: () => () => void): () => void
   register(options: {
     name: string
-    id?: string
+    /** Keyed slots dispatch by key: the settings namespace the card edits. */
+    key: string
     order?: number
     label?: string | (() => string)
     inject?: () => unknown
@@ -75,7 +85,7 @@ export function apply(ctx: ClientContext): void {
   void store.load()
   ctx.effect(
     () => slots.inject('settings.plugin.item', () => slots.register(
-      { name: 'settings.plugin.item', id: 'notify-on-complete', order: 30, inject: () => controller.inject() },
+      { name: 'settings.plugin.item', key: SETTINGS_NAMESPACE, order: 30, inject: () => controller.inject() },
       (props) => createElement(NotifyCard, props as NotifyCardProps),
     )),
     'dsh-notify-on-complete: settings card',
